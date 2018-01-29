@@ -10,11 +10,28 @@ ng\:form {
 }
 
 @font-face {
-  font-family: 'Architects Daughter';
-  font-style: normal;
-  font-weight: 400;
-  src: local('Architects Daughter'), local('ArchitectsDaughter'), url("../font/ArchitectsDaughter.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215, U+E0FF, U+EFFD, U+F000;
+    font-family: 'Roboto';
+    font-style: normal;
+    font-weight: 300;
+    src: local('Roboto Light'), local('Roboto-Light'), url(../font/roboto-light.woff) format('woff');
+}
+@font-face {
+    font-family: 'Roboto';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Roboto'), local('Roboto-Regular'), url(../font/roboto.woff) format('woff');
+}
+@font-face {
+    font-family: 'Roboto';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Roboto Bold'), local('Roboto-Bold'), url(../font/roboto-bold.woff) format('woff');
+}
+
+body {
+    background-color: transparent; !important;
+    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif; !important;
+    font-size: 14px; !important;
 }
 
 div.menu-spacer {
@@ -305,9 +322,9 @@ a.emulate-nav-pills-link {
 }
 
 .title {
-    font-family: 'Architects Daughter', cursive;
+    font-family: 'Roboto', cursive;
     font-size: 3em;
-    font-weight: 500;
+    font-weight: 700;
 }
 
 .event-logo {
