@@ -107,7 +107,7 @@
                             <span class="icon-bar"></span>
                             <span class="icon-bar"></span>
                         </button>
-                        <a class="navbar-brand logo title" data-ui-sref="index">Alf.io</a>
+                        <a class="navbar-brand logo title" data-ui-sref="index">LoyalTickets</a>
                     </div>
                     <div class="navbar-left">
                         <div class="collapse navbar-collapse" data-uib-collapse="ctrl.menuCollapsed">
