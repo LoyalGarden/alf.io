@@ -16,13 +16,34 @@
  */
 package alfio.config;
 
+import static alfio.model.system.Configuration.getSystemConfiguration;
+import static alfio.model.system.ConfigurationKeys.ENABLE_CAPTCHA_FOR_LOGIN;
+
+import java.io.IOException;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+
+import javax.servlet.FilterChain;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.sql.DataSource;
+
+import alfio.filters.JWTAuthenticationProvider;
+import alfio.filters.JWTAuthorizationFilter;
 import alfio.manager.RecaptchaService;
 import alfio.manager.system.ConfigurationManager;
 import alfio.manager.user.UserManager;
 import alfio.model.user.Role;
 import alfio.model.user.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.security.oauth2.client.EnableOAuth2Sso;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
@@ -41,18 +62,8 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.web.context.request.RequestContextListener;
 import org.springframework.web.filter.GenericFilterBean;
-
-import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.sql.DataSource;
-import java.io.IOException;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
-
-import static alfio.model.system.Configuration.getSystemConfiguration;
-import static alfio.model.system.ConfigurationKeys.ENABLE_CAPTCHA_FOR_LOGIN;
 
 @Configuration
 @EnableWebSecurity
@@ -92,11 +103,18 @@ public class WebSecurityConfig {
      */
     @Configuration
     @Order(1)
-    public static class BasicAuthWebSecurity extends BaseWebSecurity {
+    @ComponentScan("alfio.filters")
+    public static class BasicAuthWebSecurity extends WebSecurityConfigurerAdapter {
+
+        @Autowired
+        private JWTAuthenticationProvider authProvider;
+
+        @Value("${rewards.auth.key}")
+        private String key;
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
-            http.requestMatcher((request) -> request.getHeader("Authorization") != null).sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            http.requestMatcher((request) -> request.getParameter("auth") != null).sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and().csrf().disable()
             .authorizeRequests()
             .antMatchers(ADMIN_API + "/check-in/**").hasAnyRole(OPERATOR, SUPERVISOR)
@@ -105,16 +123,32 @@ public class WebSecurityConfig {
             .antMatchers(ADMIN_API + "/**").denyAll()
             .antMatchers(HttpMethod.POST, "/api/attendees/sponsor-scan").hasRole(SPONSOR)
             .antMatchers("/**").authenticated()
-            .and().httpBasic();
+            .and().addFilter(new JWTAuthorizationFilter(authenticationManager(), key));
         }
+
+        @Override
+        protected void configure(
+            AuthenticationManagerBuilder auth) throws Exception {
+            auth.authenticationProvider(authProvider);
+        }
+
+
     }
 
     /**
      * Default form based configuration.
      */
     @Configuration
+    @EnableOAuth2Sso
     @Order(2)
     public static class FormBasedWebSecurity extends BaseWebSecurity {
+
+
+        //This bean is required for EnableOAuth2Sso
+        @Bean
+        public RequestContextListener requestContextListener() {
+            return new RequestContextListener();
+        }
 
         @Autowired
         private Environment environment;
@@ -206,11 +240,7 @@ public class WebSecurityConfig {
                 .antMatchers("/api/attendees/**").denyAll()
                 .antMatchers("/**").permitAll()
                 .and()
-                .formLogin()
-                .loginPage("/authentication")
-                .loginProcessingUrl("/authenticate")
-                .failureUrl("/authentication?failed")
-                .and().logout().permitAll();
+                .logout().permitAll();
 
 
             //

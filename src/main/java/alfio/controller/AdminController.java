@@ -16,15 +16,16 @@
  */
 package alfio.controller;
 
+import java.security.Principal;
+
 import alfio.manager.system.ConfigurationManager;
 import alfio.manager.user.UserManager;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.security.Principal;
 
 @Controller
 @AllArgsConstructor
@@ -41,7 +42,7 @@ public class AdminController {
         model.addAttribute("username", principal.getName());
         model.addAttribute("basicConfigurationNeeded", configurationManager.isBasicConfigurationNeeded());
         model.addAttribute("isAdmin", principal.getName().equals("admin"));
-        model.addAttribute("isOwner", userManager.isOwner(userManager.findUserByUsername(principal.getName())));
+        model.addAttribute("isOwner", ((OAuth2Authentication) principal).getAuthorities().contains("ROLE_ADMIN"));
         return "/admin/index";
     }
 }
