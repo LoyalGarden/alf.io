@@ -107,7 +107,9 @@
                             <span class="icon-bar"></span>
                             <span class="icon-bar"></span>
                         </button>
-                        <a class="navbar-brand logo title" data-ui-sref="index">LoyalTickets</a>
+                        <a class="navbar-brand logo title" data-ui-sref="index">
+                            <img src="/resources/images/logo_lg_blackText.png" alt="." style="max-height: 36px">
+                        </a>
                     </div>
                     <div class="navbar-left">
                         <div class="collapse navbar-collapse" data-uib-collapse="ctrl.menuCollapsed">
