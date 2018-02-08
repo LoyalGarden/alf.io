@@ -24,7 +24,7 @@ public class JWTAuthenticationProvider implements AuthenticationProvider {
 
     public static final String AUTH = "auth";
 
-    @Value("${rewards.auth.url}")
+    @Value("${oauth.auth.url}")
     private String authUrl;
 
     @Override

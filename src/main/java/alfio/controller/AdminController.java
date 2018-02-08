@@ -41,8 +41,9 @@ public class AdminController {
         model.addAttribute("alfioVersion", version);
         model.addAttribute("username", principal.getName());
         model.addAttribute("basicConfigurationNeeded", configurationManager.isBasicConfigurationNeeded());
-        model.addAttribute("isAdmin", principal.getName().equals("admin"));
-        model.addAttribute("isOwner", ((OAuth2Authentication) principal).getAuthorities().contains("ROLE_ADMIN"));
+        //TODO not neccessary via OAuth
+        model.addAttribute("isAdmin", ((OAuth2Authentication) principal).getAuthorities().contains("ROLE_ADMIN"));
+        model.addAttribute("isOwner", ((OAuth2Authentication) principal).getAuthorities().contains("ROLE_OWNER"));
         return "/admin/index";
     }
 }

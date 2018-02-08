@@ -21,7 +21,7 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
  */
 public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
 
-    @Value("${rewards.auth.key}")
+    @Value("${oauth.auth.key}")
     private String key;
 
     public JWTAuthorizationFilter(AuthenticationManager authManager, String key) {

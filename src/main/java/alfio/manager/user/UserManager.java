@@ -16,8 +16,30 @@
  */
 package alfio.manager.user;
 
+import static java.util.stream.Collectors.toList;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import alfio.model.result.ValidationResult;
-import alfio.model.user.*;
+import alfio.model.user.Authority;
+import alfio.model.user.Organization;
+import alfio.model.user.Role;
+import alfio.model.user.User;
+import alfio.model.user.UserWithOrganizations;
+import alfio.model.user.UserWithPassword;
 import alfio.model.user.join.UserOrganization;
 import alfio.repository.InvoiceSequencesRepository;
 import alfio.repository.user.AuthorityRepository;
@@ -34,14 +56,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
 
 @Component
 @RequiredArgsConstructor

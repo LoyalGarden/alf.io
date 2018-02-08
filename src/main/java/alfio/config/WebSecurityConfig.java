@@ -109,7 +109,7 @@ public class WebSecurityConfig {
         @Autowired
         private JWTAuthenticationProvider authProvider;
 
-        @Value("${rewards.auth.key}")
+        @Value("${oauth.auth.key}")
         private String key;
 
         @Override
