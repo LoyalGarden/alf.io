@@ -98,7 +98,7 @@ public class ConfigurationManagerIntegrationTest {
     public void prepareEnv() {
         //setup...
         organizationRepository.create("org", "org", "email@example.com");
-        Organization organization = organizationRepository.findByName("org").get(0);
+        Organization organization = organizationRepository.findByName("org").get();
 
         userManager.insertUser(organization.getId(), USERNAME, "test", "test", "test@example.com", Role.OWNER, User.Type.INTERNAL);
 
@@ -113,7 +113,7 @@ public class ConfigurationManagerIntegrationTest {
                 new DateTimeModification(LocalDate.now(), LocalTime.now()),
                 Collections.singletonMap("en", "desc"), BigDecimal.TEN, false, "", false, null, null,
                 null, null, null));
-        EventModification em = new EventModification(null, Event.EventType.INTERNAL, "url", "url", "url", null, null,
+        EventModification em = new EventModification(null, Event.EventType.INTERNAL, "url", "url", "url", "privacy", null, null,
             "eventShortName", "displayName", organization.getId(),
             "muh location", "0.0", "0.0", ZoneId.systemDefault().getId(), desc,
             new DateTimeModification(LocalDate.now(), LocalTime.now()),
@@ -182,7 +182,7 @@ public class ConfigurationManagerIntegrationTest {
     @Test
     public void testOverrideMechanism() {
 
-        Organization organization = organizationRepository.findByName("org").get(0);
+        Organization organization = organizationRepository.findByName("org").get();
 
 
         Event event = eventManager.getSingleEvent("eventShortName", "test");
@@ -265,12 +265,12 @@ public class ConfigurationManagerIntegrationTest {
     @Test
     public void testLoadOrganizationConfiguration() {
         Map<ConfigurationKeys.SettingCategory, List<Configuration>> orgConf = configurationManager.loadOrganizationConfig(event.getOrganizationId(), USERNAME);
-        assertEquals(8, orgConf.size());
+        assertFalse(orgConf.isEmpty());
         assertEquals(ConfigurationKeys.byPathLevel(ConfigurationPathLevel.ORGANIZATION).size(), orgConf.values().stream().flatMap(Collection::stream).count());
         String value = "MY-ACCOUNT_NUMBER";
         configurationRepository.insertOrganizationLevel(event.getOrganizationId(), ConfigurationKeys.BANK_ACCOUNT_NR.getValue(), value, "empty");
         orgConf = configurationManager.loadOrganizationConfig(event.getOrganizationId(), USERNAME);
-        assertEquals(8, orgConf.size());
+        assertFalse(orgConf.isEmpty());
         assertEquals(ConfigurationKeys.byPathLevel(ConfigurationPathLevel.ORGANIZATION).size(), orgConf.values().stream().flatMap(Collection::stream).count());
         assertEquals(value, orgConf.get(SettingCategory.PAYMENT_OFFLINE).stream().filter(c -> c.getConfigurationKey() == ConfigurationKeys.BANK_ACCOUNT_NR).findFirst().orElseThrow(IllegalStateException::new).getValue());
     }

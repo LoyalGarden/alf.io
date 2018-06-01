@@ -22,6 +22,8 @@ import alfio.model.transaction.PaymentProxy;
 import alfio.model.user.Organization;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.experimental.Delegate;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
@@ -204,6 +206,11 @@ public enum TemplateResource {
         return sampleTicket("Firstname", "Lastname", "email@email.tld");
     }
 
+    private static TicketCategory sampleCategory() {
+        return new TicketCategory(0, ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(1), 100, "test category", false, TicketCategory.Status.ACTIVE,
+            0, true, 100, null, null, null, null, null);
+    }
+
     private static Ticket sampleTicket(String firstName, String lastName, String email) {
         return new Ticket(0, "597e7e7b-c514-4dcb-be8c-46cf7fe2c36e", ZonedDateTime.now(), 0, "ACQUIRED", 0,
             "597e7e7b-c514-4dcb-be8c-46cf7fe2c36e", firstName + " " + lastName, firstName, lastName, email, false, "en",
@@ -213,15 +220,17 @@ public enum TemplateResource {
     private static TicketReservation sampleTicketReservation() {
         return new TicketReservation("597e7e7b-c514-4dcb-be8c-46cf7fe2c36e", new Date(), TicketReservation.TicketReservationStatus.COMPLETE,
             "Firstname Lastname", "FirstName", "Lastname", "email@email.tld", "billing address", ZonedDateTime.now(), ZonedDateTime.now(),
-            PaymentProxy.STRIPE, true, null, false, "en", false, null, null, null, "123456", "CH", false, new BigDecimal("8.00"), true);
+            PaymentProxy.STRIPE, true, null, false, "en", false, null, null, null, "123456",
+            "CH", false, new BigDecimal("8.00"), true,
+            ZonedDateTime.now().minusMinutes(1), "PO-1234");
     }
 
     private static Map<String, Object> prepareSampleDataForConfirmationEmail(Organization organization, Event event) {
         TicketReservation reservation = sampleTicketReservation();
         Optional<String> vat = Optional.of("VAT-NR");
-        List<Ticket> tickets = Collections.singletonList(sampleTicket());
+        List<TicketWithCategory> tickets = Collections.singletonList(new TicketWithCategory(sampleTicket(), sampleCategory()));
         OrderSummary orderSummary = new OrderSummary(new TotalPrice(1000, 80, 0, 0),
-            Collections.singletonList(new SummaryRow("Ticket", "10.00", "9.20", 1, "9.20", "9.20", 1000, SummaryRow.SummaryType.TICKET)), false, "10.00", "0.80", false, false, "8", PriceContainer.VatStatus.INCLUDED);
+            Collections.singletonList(new SummaryRow("Ticket", "10.00", "9.20", 1, "9.20", "9.20", 1000, SummaryRow.SummaryType.TICKET)), false, "10.00", "0.80", false, false, "8", PriceContainer.VatStatus.INCLUDED, "1.00");
         String reservationUrl = "http://your-domain.tld/reservation-url/";
         String reservationShortId = "597e7e7b";
         return prepareModelForConfirmationEmail(organization, event, reservation, vat, tickets, orderSummary, reservationUrl, reservationShortId, Optional.of("My Invoice\nAddress"), Optional.empty(), Optional.empty());
@@ -239,7 +248,7 @@ public enum TemplateResource {
                                                                        Event event,
                                                                        TicketReservation reservation,
                                                                        Optional<String> vat,
-                                                                       List<Ticket> tickets,
+                                                                       List<TicketWithCategory> tickets,
                                                                        OrderSummary orderSummary,
                                                                        String reservationUrl,
                                                                        String reservationShortID,
@@ -257,8 +266,10 @@ public enum TemplateResource {
         model.put("reservationUrl", reservationUrl);
         model.put("locale", reservation.getUserLanguage());
 
-        ZonedDateTime confirmationTimestamp = Optional.ofNullable(reservation.getConfirmationTimestamp()).orElseGet(ZonedDateTime::now);
-        model.put("confirmationDate", confirmationTimestamp.withZoneSameInstant(event.getZoneId()));
+        model.put("hasRefund", StringUtils.isNotEmpty(orderSummary.getRefundedAmount()));
+
+        ZonedDateTime creationTimestamp = ObjectUtils.firstNonNull(reservation.getCreationTimestamp(), reservation.getConfirmationTimestamp(), ZonedDateTime.now());
+        model.put("confirmationDate", creationTimestamp.withZoneSameInstant(event.getZoneId()));
 
         if (reservation.getValidity() != null) {
             model.put("expirationDate", ZonedDateTime.ofInstant(reservation.getValidity().toInstant(), event.getZoneId()));
@@ -278,6 +289,7 @@ public enum TemplateResource {
         });
 
         model.put("isOfflinePayment", reservation.getStatus() == TicketReservation.TicketReservationStatus.OFFLINE_PAYMENT);
+        model.put("hasCustomerReference", StringUtils.isNotBlank(reservation.getCustomerReference()));
         model.put("paymentReason", event.getShortName() + " " + reservationShortID);
         model.put("hasBankAccountOnwer", bankAccountOwner.isPresent());
         bankAccountOwner.ifPresent(owner -> {
@@ -292,7 +304,7 @@ public enum TemplateResource {
     public static Map<String, Object> prepareModelForOfflineReservationExpiringEmailForOrganizer(Event event, List<TicketReservationInfo> reservations, String baseUrl) {
         Map<String, Object> model = new HashMap<>();
         model.put("eventName", event.getDisplayName());
-        model.put("ticketReservations", reservations);
+        model.put("ticketReservations", reservations.stream().map(r -> new TicketReservationWithZonedExpiringDate(r, event)).collect(Collectors.toList()));
         model.put("baseUrl", baseUrl);
         model.put("eventShortName", event.getShortName());
         return model;
@@ -301,7 +313,7 @@ public enum TemplateResource {
     public static Map<String, Object> prepareSampleModelForOfflineReservationExpiringEmailForOrganizer(Event event) {
         Map<String, Object> model = new HashMap<>();
         model.put("eventName", event.getDisplayName());
-        model.put("ticketReservations", Collections.singletonList(new TicketReservationInfo("id", null, "Firstname", "Lastname", "email@email.email", 42)));
+        model.put("ticketReservations", Collections.singletonList(new TicketReservationInfo("id", null, "Firstname", "Lastname", "email@email.email", 42, new Date())));
         model.put("baseUrl", "http://base-url/");
         model.put("eventShortName", event.getShortName());
         return model;
@@ -472,5 +484,17 @@ public enum TemplateResource {
         private final String eventImage;
         private final Integer imageWidth;
         private final Integer imageHeight;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class TicketReservationWithZonedExpiringDate {
+        @Delegate
+        private final TicketReservationInfo reservation;
+        private final Event event;
+
+        public ZonedDateTime getZonedExpiration() {
+            return reservation.getValidity().toInstant().atZone(event.getZoneId());
+        }
     }
 }

@@ -320,7 +320,7 @@
             controller: function EditEventHeaderController($scope, $stateParams, LocationService, FileUploadService, UtilsService, EventService) {
                 if(!angular.isDefined($scope.fullEditMode)) {
                     var source = _.pick($scope.eventObj, ['id','shortName', 'displayName', 'organizationId', 'location',
-                        'description', 'websiteUrl', 'externalUrl', 'termsAndConditionsUrl', 'imageUrl', 'fileBlobId', 'formattedBegin','type',
+                        'description', 'websiteUrl', 'externalUrl', 'termsAndConditionsUrl', 'privacyPolicyUrl', 'imageUrl', 'fileBlobId', 'formattedBegin','type',
                         'formattedEnd', 'geolocation', 'locales']);
                     angular.extend($scope.obj, source);
                     var beginDateTime = moment(source['formattedBegin']);
@@ -466,6 +466,10 @@
 	                	reader.readAsDataURL(files[0]);
 	                }
                 };
+
+                $scope.isObjectEmpty = function(obj) {
+                    return !obj || Object.keys(obj).length === 0;
+                }
             }
         }
     });
@@ -568,8 +572,21 @@
                     $scope.helpAccessCodeCollapse = !$scope.helpAccessCodeCollapse;
                 };
 
-                $scope.customCheckInCollapsed = true;
-                $scope.customValidityCollapsed = true;
+                var hasCustomCheckIn = function(ticketCategory) {
+                    return ticketCategory.formattedValidCheckInFrom ||
+                        ticketCategory.validCheckInFrom ||
+                        ticketCategory.formattedValidCheckInTo ||
+                        ticketCategory.validCheckInTo;
+                };
+
+                var hasCustomTicketValidity = function(ticketCategory) {
+                    return ticketCategory.formattedValidityStart||
+                        ticketCategory.ticketValidityStart ||
+                        ticketCategory.formattedValidityEnd ||
+                        ticketCategory.ticketValidityEnd;
+                };
+
+                $scope.advancedOptionsCollapsed = !hasCustomCheckIn($scope.ticketCategory) && !hasCustomTicketValidity($scope.ticketCategory);
             }
         };
     });
@@ -1016,6 +1033,19 @@
                 }
             }
         };
-    }])
+    }]);
+
+    directives.directive('languageFlag', function() {
+        return {
+            restrict: 'E',
+            scope: {
+                lang: '@'
+            },
+            controller: function($scope) {
+                $scope.flag = $scope.lang === 'en' ? 'gb' : $scope.lang;
+            },
+            template: '<img class="img-center" ng-src="../resources/images/flags/{{flag}}.gif">'
+        };
+    })
     
 })();

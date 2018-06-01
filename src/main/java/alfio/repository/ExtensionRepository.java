@@ -18,9 +18,7 @@
 package alfio.repository;
 
 import alfio.model.ExtensionSupport;
-import ch.digitalfondue.npjt.Bind;
-import ch.digitalfondue.npjt.Query;
-import ch.digitalfondue.npjt.QueryRepository;
+import ch.digitalfondue.npjt.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,10 +27,20 @@ import java.util.Set;
 @QueryRepository
 public interface ExtensionRepository {
 
-    @Query("insert into extension_support(path, name, hash, enabled, async, script) values " +
-        " (:path, :name, :hash, :enabled, :async, :script)")
+    @Query("insert into extension_support(path, name, display_name, hash, enabled, async, script) values " +
+        " (:path, :name, :displayName, :hash, :enabled, :async, :script)")
     int insert(@Bind("path") String path,
                @Bind("name") String name,
+               @Bind("displayName") String displayName,
+               @Bind("hash") String hash,
+               @Bind("enabled") boolean enabled,
+               @Bind("async") boolean async,
+               @Bind("script") String script);
+
+    @Query("update extension_support set display_name = :displayName, hash = :hash, enabled = :enabled, async = :async, script = :script where path = :path and name = :name")
+    int update(@Bind("path") String path,
+               @Bind("name") String name,
+               @Bind("displayName") String displayName,
                @Bind("hash") String hash,
                @Bind("enabled") boolean enabled,
                @Bind("async") boolean async,
@@ -41,12 +49,12 @@ public interface ExtensionRepository {
     @Query("update extension_support set enabled = :enabled where path = :path and name = :name")
     int toggle(@Bind("path") String path, @Bind("name") String name, @Bind("enabled") boolean enabled);
 
-    @Query("insert into extension_event(path_fk, name_fk, event) values " +
-        " (:path, :name, :event)")
-    int insertEvent(@Bind("path") String path, @Bind("name") String name, @Bind("event") String event);
+    @Query("insert into extension_event(es_id_fk, event) values " +
+        " (:extensionId, :event)")
+    int insertEvent(@Bind("extensionId") int extensionId, @Bind("event") String event);
 
-    @Query("select count(*) from extension_support where path = :path and name = :name")
-    int hasPath(@Bind("path") String path, @Bind("name") String name);
+    @Query("select es_id from extension_support where path = :path and name = :name")
+    int getExtensionIdFor(@Bind("path") String path, @Bind("name") String name);
 
     @Query("select script from extension_support where path = :path and name = :name")
     String getScript(@Bind("path") String path, @Bind("name") String name);
@@ -54,7 +62,7 @@ public interface ExtensionRepository {
     @Query("select * from extension_support where path = :path and name = :name")
     Optional<ExtensionSupport> getSingle(@Bind("path") String path, @Bind("name") String name);
 
-    @Query("delete from extension_event where path_fk = :path and name_fk = :name")
+    @Query("delete from extension_event where es_id_fk = (select es_id from extension_support where path = :path and name = :name)")
     int deleteEventsForPath(@Bind("path") String path, @Bind("name") String name);
 
     @Query("delete from extension_support where path = :path and name = :name")
@@ -63,14 +71,72 @@ public interface ExtensionRepository {
     @Query("select * from extension_support order by name, path")
     List<ExtensionSupport> listAll();
 
-    @Query("select a3.path, a3.name, a3.hash from " +
+    @Query("select a3.es_id, a3.path, a3.name, a3.hash from " +
         " (select a1.* from " +
-        " (select path, name, hash from extension_support where enabled = true and async = :async and (path in (:possiblePaths))) a1 " +
-        " left outer join (select path, name from extension_support where enabled = true and async = :async and (path in (:possiblePaths))) a2 on " +
-        " (a1.name = a2.name) and length(a1.path) < length(a2.path) where a2.path is null) a3 " +
+        " (select es_id, path, name, hash from extension_support where enabled = true and async = :async and (path in (:possiblePaths))) a1 " +
+        " left outer join (select es_id, path, name from extension_support where enabled = true and async = :async and (path in (:possiblePaths))) a2 on " +
+        " (a1.es_id = a2.es_id) and length(a1.path) < length(a2.path) where a2.path is null) a3 " +
         " " +
-        " inner join extension_event on path_fk = a3.path and name_fk = a3.name where event = :event order by a3.name, a3.path")
+        " inner join extension_event on es_id_fk = a3.es_id where event = :event order by a3.name, a3.path")
     List<ExtensionSupport.ScriptPathNameHash> findActive(@Bind("possiblePaths") Set<String> possiblePaths,
                                                          @Bind("async") boolean async,
                                                          @Bind("event") String event);
+
+    @Query("delete from extension_configuration_metadata where  ecm_es_id_fk = :extensionId")
+    int deleteExtensionParameter(@Bind("extensionId") int extensionId);
+
+    @Query("select ecm_name, ecm_configuration_level, conf_path, conf_value from extension_configuration_metadata " +
+        " inner join extension_configuration_metadata_value on fk_ecm_id = ecm_id " +
+        " where  ecm_es_id_fk =  :extensionId ")
+    List<ExtensionSupport.ExtensionParameterKeyValue> findExtensionParameterKeyValue(@Bind("extensionId") int extensionId);
+
+    @Query("insert into extension_configuration_metadata(ecm_es_id_fk, ecm_name, ecm_description, ecm_type, ecm_configuration_level, ecm_mandatory) " +
+        " values (:extensionId, :name, :description, :type, :configurationLevel, :mandatory)")
+    @AutoGeneratedKey("ecm_id")
+    AffectedRowCountAndKey<Integer> registerExtensionConfigurationMetadata(@Bind("extensionId") int extensionId,
+                                               @Bind("name") String name,
+                                               @Bind("description") String description,
+                                               @Bind("type") String type,
+                                               @Bind("configurationLevel") String configurationLevel,
+                                               @Bind("mandatory") boolean mandatory);
+
+
+    @Query("select ecm_id, ecm_name, ecm_configuration_level, ecm_description, ecm_type, ecm_mandatory, path, es_id, name, display_name, conf_path, conf_value"+
+        " from extension_configuration_metadata " +
+        " inner join extension_support on es_id = ecm_es_id_fk " +
+        " left outer join extension_configuration_metadata_value on ecm_id = fk_ecm_id and (conf_path is null or (conf_path in (:possiblePaths))) " +
+        " where ecm_configuration_level = :configurationLevel and (path in (:possiblePaths) or path like :pathPattern) order by es_id, name, ecm_id, ecm_name")
+    List<ExtensionSupport.ExtensionParameterMetadataAndValue> getParametersForLevelAndPath(
+        @Bind("configurationLevel") String configurationLevel,
+        @Bind("possiblePaths") Set<String> possiblePaths,
+        @Bind("pathPattern") String pathPattern);
+
+
+    @Query("delete from extension_configuration_metadata_value where fk_ecm_id in (select ecm_id from extension_configuration_metadata where ECM_CONFIGURATION_LEVEL = :confLevel) and conf_path = :confPath")
+    int deleteSettingValue(@Bind("confLevel") String level, @Bind("confPath") String confPath);
+
+    @Query("delete from extension_configuration_metadata_value where fk_ecm_id = :id and conf_path = :path")
+    int deleteSettingValue(@Bind("id") int id, @Bind("path") String path);
+
+    @Query("insert into extension_configuration_metadata_value(fk_ecm_id, conf_path, conf_value) values (:ecmId, :confPath, :value)")
+    int insertSettingValue(@Bind("ecmId") int ecmId, @Bind("confPath") String confPath, @Bind("value") String value);
+
+    @Query("select ecm_name, conf_value from " +
+        "" +
+        "(select ecm_name, conf_value, ecm_configuration_level, conf_path, " +
+        "(case when ecm_configuration_level = 'EVENT' then 0 when ecm_configuration_level = 'ORGANIZATION' then 1 else 2 end) as priority from extension_configuration_metadata inner join " +
+        "extension_configuration_metadata_value on ecm_id = fk_ecm_id " +
+        "where ecm_es_id_fk = (SELECT es_id from extension_support where path = :path and name = :name) and conf_path in (:allPaths)) a1 " +
+        "" +
+        "where (ecm_name, priority) in " +
+        "" +
+        "(select ecm_name, min(priority) selected_priority from ( " +
+        "select ecm_name, conf_value, ecm_configuration_level, conf_path, " +
+        "(case when ecm_configuration_level = 'EVENT' then 0 when ecm_configuration_level = 'ORGANIZATION' then 1 else 2 end) as priority from extension_configuration_metadata inner join " +
+        "extension_configuration_metadata_value on ecm_id = fk_ecm_id " +
+        "where ecm_es_id_fk = (SELECT es_id from extension_support where path = :path and name = :name) and conf_path in (:allPaths)) a2 group by ecm_name)")
+    List<ExtensionSupport.NameAndValue> findParametersForScript(@Bind("name") String name, @Bind("path") String path, @Bind("allPaths") Set<String> allPaths);
+
+    @Query("select distinct ecm_name from extension_configuration_metadata where ecm_es_id_fk = (SELECT es_id from extension_support where path = :path and name = :name) and ecm_mandatory is true")
+    List<String> findMandatoryParametersForScript(@Bind("name") String name, @Bind("path") String path);
 }

@@ -104,11 +104,10 @@ public class ResourceController {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public String handleSyntaxError(Exception ex) {
-        Optional<String> cause = Optional.ofNullable(ex.getCause()).filter(MustacheException.class::isInstance).map(Throwable::getMessage);
-        if(cause.isPresent()) {
-            return cause.get();
-        }
-        return "Something went wrong. Please check the syntax and retry";
+        Optional<String> cause = Optional.ofNullable(ex.getCause())
+            .filter(MustacheException.class::isInstance)
+            .map(Throwable::getMessage);
+        return cause.orElse("Something went wrong. Please check the syntax and retry");
     }
 
     @RequestMapping(value = "/overridable-template/", method = RequestMethod.GET)
@@ -147,7 +146,7 @@ public class ResourceController {
             Organization organization = organizationRepository.getById(organizationId);
             Optional<TemplateResource.ImageData> image = TemplateProcessor.extractImageModel(event, fileUploadManager);
             Map<String, Object> model = name.prepareSampleModel(organization, event, image);
-            String renderedTemplate = templateManager.renderString(template.getFileAsString(), model, loc, name.getTemplateOutput());
+            String renderedTemplate = templateManager.renderString(event, template.getFileAsString(), model, loc, name.getTemplateOutput());
             if("text/plain".equals(name.getRenderedContentType())) {
                 response.addHeader("Content-Disposition", "attachment; filename="+name.name()+".txt");
                 response.setContentType("text/plain");

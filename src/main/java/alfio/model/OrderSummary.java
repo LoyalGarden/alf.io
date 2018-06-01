@@ -16,6 +16,7 @@
  */
 package alfio.model;
 
+import alfio.util.MonetaryUtil;
 import lombok.Data;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public class OrderSummary {
     private final boolean cashPayment;
     private final String vatPercentage;
     private final PriceContainer.VatStatus vatStatus;
+    private final String refundedAmount;
 
     /* lol jmustache */
     public boolean getFree() {
@@ -58,6 +60,21 @@ public class OrderSummary {
     }
 
     public boolean getDisplayVat() {
-        return !PriceContainer.VatStatus.isVatExempt(vatStatus);
+        return !isVatExempt();
+    }
+
+    public boolean isVatExempt() {
+        return PriceContainer.VatStatus.isVatExempt(vatStatus);
+    }
+
+    public String getRefundedAmount() {
+        return refundedAmount;
+    }
+
+    public String getTotalNetPrice() {
+        if(free) {
+            return null;
+        }
+        return MonetaryUtil.formatCents(originalTotalPrice.getPriceWithVAT() - originalTotalPrice.getVAT());
     }
 }

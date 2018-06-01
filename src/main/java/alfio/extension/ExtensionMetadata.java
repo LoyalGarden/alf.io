@@ -25,6 +25,27 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 public class ExtensionMetadata {
+    String id;
+    String displayName;
+    Integer version;
     boolean async;
     List<String> events;
+    Parameters parameters;
+
+    @Getter
+    @AllArgsConstructor
+    public static class Parameters {
+        List<Field> fields;
+        List<String> configurationLevels;
+    }
+
+
+    @Getter
+    @AllArgsConstructor
+    public static class Field {
+        String name;
+        String description;
+        String type;
+        boolean required;
+    }
 }

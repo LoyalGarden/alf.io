@@ -43,7 +43,6 @@
     <script src="{{request.contextPath}}/resources/js/admin/service/resource-service.js"></script>
     <script src="{{request.contextPath}}/resources/js/admin/service/organization.service.js"></script>
     <script src="{{request.contextPath}}/resources/js/admin/service/user.service.js"></script>
-    <script src="{{request.contextPath}}/resources/js/admin/feature/plugin/plugin-log.js"></script>
     <script src="{{request.contextPath}}/resources/js/admin/feature/email/email-log.js"></script>
     <script src="{{request.contextPath}}/resources/js/admin/feature/util/file-upload.js"></script>
 
@@ -84,7 +83,10 @@
     <script src="{{request.contextPath}}/resources/js/admin/feature/label-template/label-template.js"></script>
 
     <script src="{{request.contextPath}}/resources/js/admin/feature/extension/extension.js"></script>
+    <script src="{{request.contextPath}}/resources/js/admin/feature/extension/extension.service.js"></script>
     <script src="{{request.contextPath}}/resources/js/admin/feature/extension/add-update/extension-add-update.js"></script>
+    <script src="{{request.contextPath}}/resources/js/admin/feature/extension/log/extension-log.js"></script>
+    <script src="{{request.contextPath}}/resources/js/admin/feature/ticket-category/ticket-category.js"></script>
 
     <link rel="stylesheet" href="{{request.contextPath}}/resources/js/admin/feature/reservation/create/reservation-create.css" />
 
@@ -156,9 +158,6 @@
                                 <li role="presentation" data-ui-sref-active="active">
                                     <a data-ui-sref="events.single.email-log({eventName:ctrl.eventName})" ng-click="ctrl.menuCollapsed = true"><i class="fa fa-paper-plane-o"></i> E-mail log</a>
                                 </li>
-                                <li role="presentation" data-ui-sref-active="active">
-                                    <a data-ui-sref="events.single.plugin-log({eventName:ctrl.eventName})" ng-click="ctrl.menuCollapsed = true"><i class="fa fa-plug"></i> Plugins log</a>
-                                </li>
                             </ul>
                             <ul class="nav navbar-nav visible-sm visible-xs">
                                 <li class="nav-divider"></li>
@@ -169,7 +168,7 @@
                             </ul>
                         </div>
                     </div>
-                    <div class="navbar-right hidden-xs">
+                    <div class="navbar-right hidden-sm hidden-xs">
                         <ul class="nav navbar-nav">
                             <li role="presentation" class="navbar-text"><i class="fa fa-user"></i> Logged in as {{username}}</li>
                             <li role="presentation" data-ui-sref-active="active"> <a data-ui-sref="edit-current-user" title="click to update account details"><i class="fa fa-edit"></i> edit account</a></li>

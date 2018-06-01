@@ -52,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 import static alfio.model.modification.DateTimeModification.fromZonedDateTime;
@@ -159,7 +160,7 @@ public class WaitingQueueProcessorIntegrationTest {
         Pair<String, Event> pair = initSoldOutEvent(true);
         Event event = pair.getRight();
         EventModification eventModification = new EventModification(event.getId(), event.getType(), event.getWebsiteUrl(),
-            event.getExternalUrl(), event.getTermsAndConditionsUrl(), event.getImageUrl(), event.getFileBlobId(), event.getShortName(), event.getDisplayName(),
+            event.getExternalUrl(), event.getTermsAndConditionsUrl(), event.getPrivacyPolicyUrl(), event.getImageUrl(), event.getFileBlobId(), event.getShortName(), event.getDisplayName(),
             event.getOrganizationId(), event.getLocation(), event.getLatitude(), event.getLongitude(), event.getZoneId().getId(), emptyMap(), fromZonedDateTime(event.getBegin()), fromZonedDateTime(event.getEnd()),
             event.getRegularPrice(), event.getCurrency(), eventRepository.countExistingTickets(event.getId()) + 1, event.getVat(), event.isVatIncluded(), event.getAllowedPaymentProxies(),
             Collections.emptyList(), event.isFreeOfCharge(), null, event.getLocales(), Collections.emptyList(), Collections.emptyList());
@@ -178,7 +179,7 @@ public class WaitingQueueProcessorIntegrationTest {
         Pair<String, Event> pair = initSoldOutEvent(false);
         Event event = pair.getRight();
         EventModification eventModification = new EventModification(event.getId(), event.getType(), event.getWebsiteUrl(),
-            event.getExternalUrl(), event.getTermsAndConditionsUrl(), event.getImageUrl(), event.getFileBlobId(), event.getShortName(), event.getDisplayName(),
+            event.getExternalUrl(), event.getTermsAndConditionsUrl(), event.getPrivacyPolicyUrl(), event.getImageUrl(), event.getFileBlobId(), event.getShortName(), event.getDisplayName(),
             event.getOrganizationId(), event.getLocation(), event.getLatitude(), event.getLongitude(), event.getZoneId().getId(), emptyMap(), fromZonedDateTime(event.getBegin()), fromZonedDateTime(event.getEnd()),
             event.getRegularPrice(), event.getCurrency(), eventRepository.countExistingTickets(event.getId()) + 1, event.getVat(), event.isVatIncluded(), event.getAllowedPaymentProxies(),
             Collections.emptyList(), event.isFreeOfCharge(), null, event.getLocales(), Collections.emptyList(), Collections.emptyList());
@@ -227,7 +228,7 @@ public class WaitingQueueProcessorIntegrationTest {
         assertEquals(boundedCategorySize, boundedReserved.size());
         List<Integer> reserved = new ArrayList<>(boundedReserved);
         String reservationId = UUID.randomUUID().toString();
-        ticketReservationRepository.createNewReservation(reservationId, DateUtils.addHours(new Date(), 1), null, Locale.ITALIAN.getLanguage(), event.getId(), event.getVat(), event.isVatIncluded());
+        ticketReservationRepository.createNewReservation(reservationId, ZonedDateTime.now(), DateUtils.addHours(new Date(), 1), null, Locale.ITALIAN.getLanguage(), event.getId(), event.getVat(), event.isVatIncluded());
         List<Integer> reservedForUpdate = withUnboundedCategory ? reserved.subList(0, 19) : reserved;
         ticketRepository.reserveTickets(reservationId, reservedForUpdate, bounded.getId(), Locale.ITALIAN.getLanguage(), 0);
         if(withUnboundedCategory) {

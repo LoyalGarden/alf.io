@@ -22,14 +22,14 @@ create table extension_support (
     enabled boolean not null,
     async boolean not null,
     script mediumtext not null
-);
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE utf8_bin;
 alter table extension_support add constraint unique_extension_support unique(path, name);
 
 create table extension_event (
     path_fk varchar(128) not null,
     name_fk varchar(64) not null,
     event varchar(128) not null
-);
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE utf8_bin;
 
 alter table extension_event add constraint unique_extension_event unique(path_fk, name_fk);
 alter table extension_event add foreign key(path_fk, name_fk) references extension_support(path, name);

@@ -256,7 +256,7 @@ public class ReservationFlowIntegrationTest {
 
 
         // check that the payment page is shown
-        String reservationPage = reservationController.showPaymentPage(eventName, reservationIdentifier, null, null, null, null, null, null, null, null, null, null, null, new BindingAwareModelMap(), Locale.ENGLISH);
+        String reservationPage = reservationController.showPaymentPage(eventName, reservationIdentifier, null, null, null, null, null, null, null, null, null, null, null, null, null, new BindingAwareModelMap(), Locale.ENGLISH);
         assertEquals("/event/reservation-page", reservationPage);
         //
 
@@ -510,6 +510,7 @@ public class ReservationFlowIntegrationTest {
         paymentForm.setFirstName("full");
         paymentForm.setLastName("name");
         paymentForm.setTermAndConditionsAccepted(true);
+        paymentForm.setPrivacyPolicyAccepted(true);
         paymentForm.setPostponeAssignment(true);
         BindingResult bindingResult = new BeanPropertyBindingResult(paymentForm, "paymentForm");
         Model model = new BindingAwareModelMap();

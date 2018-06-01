@@ -90,14 +90,8 @@
             removeCategoryConfig: function(conf, eventId, categoryId) {
                 return $http['delete']('/admin/api/configuration/event/'+eventId+'/category/'+categoryId+'/key/' + conf.configurationKey).error(HttpErrorHandler.handle);
             },
-            loadPluginsConfig: function(eventId) {
-                return $http.get('/admin/api/configuration/events/'+eventId+'/plugin/load').error(HttpErrorHandler.handle);
-            },
             getPlatformModeStatus: function(orgId) {
                 return $http.get('/admin/api/configuration/platform-mode/status/'+orgId).error(HttpErrorHandler.handle);
-            },
-            bulkUpdatePlugins: function(eventId, pluginConfigOptions) {
-                return $http.post('/admin/api/configuration/events/'+eventId+'/plugin/update-bulk', pluginConfigOptions).error(HttpErrorHandler.handle);
             },
             transformConfigurationObject: function(original) {
                 var transformed = {};
@@ -126,7 +120,7 @@
                     }
                 }
 
-                _.forEach(['PAYMENT', 'PAYMENT_STRIPE', 'PAYMENT_PAYPAL', /*'PAYMENT_MOLLIE',*/ 'PAYMENT_OFFLINE', 'INVOICE_EU', 'ALFIO_PI'], function(group) {
+                _.forEach(['PAYMENT', 'PAYMENT_STRIPE', 'PAYMENT_PAYPAL', /*'PAYMENT_MOLLIE',*/ 'PAYMENT_OFFLINE', 'INVOICE_EU', 'TRANSLATIONS', 'RESERVATION_UI', 'ALFIO_PI'], function(group) {
                     if(angular.isDefined(original[group]) && original[group].length > 0) {
                         transformed[_.camelCase(group)] = {
                             settings: original[group]
@@ -173,13 +167,15 @@
 
     ConfigurationController.$inject = ['OrganizationService', 'EventService', '$q', '$rootScope'];
 
-    function SystemConfigurationController(ConfigurationService, EventService, NotificationHandler, $rootScope, $q) {
+    function SystemConfigurationController(ConfigurationService, EventService, ExtensionService, NotificationHandler, $rootScope, $q) {
         var systemConf = this;
         systemConf.loading = true;
 
+        systemConf.keys = Object.keys;
+
         var loadAll = function() {
             systemConf.loading = true;
-            $q.all([EventService.getAllLanguages(), ConfigurationService.loadAll(), ConfigurationService.loadEUCountries()]).then(function(results) {
+            $q.all([EventService.getAllLanguages(), ConfigurationService.loadAll(), ConfigurationService.loadEUCountries(), ExtensionService.loadSystem()]).then(function(results) {
                 systemConf.allLanguages = results[0].data;
                 loadSettings(systemConf, results[1].data, ConfigurationService);
                 if(systemConf.general) {
@@ -200,6 +196,9 @@
                 if(systemConf.alfioPi) {
                     systemConf.alfioPiOptions = _.filter(systemConf.alfioPi.settings, function(pi) { return pi.key !== 'LABEL_LAYOUT'});
                 }
+
+                systemConf.extensionSettings = results[3].data;
+
             }, function() {
                 systemConf.loading = false;
             });
@@ -211,7 +210,7 @@
                 return;
             }
             systemConf.loading = true;
-            ConfigurationService.bulkUpdate(systemConf.settings).then(function() {
+            $q.all([ConfigurationService.bulkUpdate(systemConf.settings), ExtensionService.saveBulkSystemSetting(systemConf.extensionSettings)]).then(function() {
                 loadAll();
                 NotificationHandler.showSuccess("Configurations have been saved successfully");
             }, function(e) {
@@ -229,14 +228,18 @@
             return ConfigurationService.removeSystemConfig(config);
         };
 
+        systemConf.deleteExtensionSetting = function(config) {
+            return ExtensionService.deleteSystemSettingValue(config);
+        };
+
         $rootScope.$on('ReloadSettings', function() {
             loadAll();
         });
     }
 
-    SystemConfigurationController.$inject = ['ConfigurationService', 'EventService', 'NotificationHandler', '$rootScope', '$q'];
+    SystemConfigurationController.$inject = ['ConfigurationService', 'EventService', 'ExtensionService', 'NotificationHandler', '$rootScope', '$q'];
 
-    function OrganizationConfigurationController(ConfigurationService, OrganizationService, NotificationHandler, $stateParams, $q, $rootScope) {
+    function OrganizationConfigurationController(ConfigurationService, OrganizationService, ExtensionService, NotificationHandler, $stateParams, $q, $rootScope) {
         var organizationConf = this;
         organizationConf.organizationId = $stateParams.organizationId;
         var load = function() {
@@ -244,7 +247,8 @@
             $q.all([OrganizationService.getOrganization(organizationConf.organizationId),
                 ConfigurationService.loadOrganizationConfig(organizationConf.organizationId),
                 ConfigurationService.loadEUCountries(),
-                ConfigurationService.getPlatformModeStatus(organizationConf.organizationId)
+                ConfigurationService.getPlatformModeStatus(organizationConf.organizationId),
+                ExtensionService.loadOrganizationConfigWithOrgId(organizationConf.organizationId)
             ]).then(function(result) {
                     organizationConf.organization = result[0].data;
                     loadSettings(organizationConf, result[1].data, ConfigurationService);
@@ -252,6 +256,7 @@
                     var platformModeStatus = result[3].data;
                     organizationConf.platformModeEnabled = platformModeStatus.enabled;
                     organizationConf.stripeConnected = platformModeStatus.stripeConnected;
+                    organizationConf.extensionSettings = result[4].data;
                 }, function() {
                     organizationConf.loading = false;
                 });
@@ -262,7 +267,8 @@
                 return;
             }
             organizationConf.loading = true;
-            ConfigurationService.updateOrganizationConfig(organizationConf.organization, organizationConf.settings).then(function() {
+            $q.all([ConfigurationService.updateOrganizationConfig(organizationConf.organization, organizationConf.settings),
+                ExtensionService.saveBulkOrganizationSetting(organizationConf.organizationId, organizationConf.extensionSettings)]).then(function() {
                 load();
                 NotificationHandler.showSuccess("Configurations have been saved successfully");
             }, function(e) {
@@ -276,14 +282,18 @@
             return ConfigurationService.removeOrganizationConfig(config, organizationConf.organizationId);
         };
 
+        organizationConf.deleteExtensionSetting = function(config) {
+            return ExtensionService.deleteOrganizationSettingValue(organizationConf.organizationId, config);
+        };
+
         $rootScope.$on('ReloadSettings', function() {
             load();
         });
     }
 
-    OrganizationConfigurationController.$inject = ['ConfigurationService', 'OrganizationService', 'NotificationHandler', '$stateParams', '$q', '$rootScope'];
+    OrganizationConfigurationController.$inject = ['ConfigurationService', 'OrganizationService', 'ExtensionService', 'NotificationHandler', '$stateParams', '$q', '$rootScope'];
 
-    function EventConfigurationController(ConfigurationService, EventService, NotificationHandler, $q, $rootScope, $stateParams) {
+    function EventConfigurationController(ConfigurationService, EventService, ExtensionService, NotificationHandler, $q, $rootScope, $stateParams) {
         var eventConf = this;
         var getData = function() {
             if(angular.isDefined($stateParams.eventName)) {
@@ -293,7 +303,7 @@
                     var event = result.data.event;
                     eventConf.eventName = event.shortName;
                     eventConf.eventId = event.id;
-                    $q.all([ConfigurationService.loadEventConfig(eventConf.eventId), ConfigurationService.loadPluginsConfig(eventConf.eventId)]).then(function(result) {
+                    $q.all([ConfigurationService.loadEventConfig(eventConf.eventId), ExtensionService.loadEventConfigWithOrgIdAndEventId(eventConf.organizationId, eventConf.eventId)]).then(function(result) {
                         deferred.resolve([{data:event}].concat(result));
                     }, function(e) {
                         deferred.reject(e);
@@ -305,7 +315,7 @@
             } else {
                 eventConf.eventId = $stateParams.eventId;
                 eventConf.organizationId = $stateParams.organizationId;
-                return $q.all([EventService.getEventById($stateParams.eventId), ConfigurationService.loadEventConfig($stateParams.eventId), ConfigurationService.loadPluginsConfig($stateParams.eventId)])
+                return $q.all([EventService.getEventById($stateParams.eventId), ConfigurationService.loadEventConfig($stateParams.eventId), ExtensionService.loadEventConfigWithOrgIdAndEventId(eventConf.organizationId, eventConf.eventId)])
             }
         };
 
@@ -314,12 +324,12 @@
             getData().then(function(result) {
                     eventConf.event = result[0].data;
                     loadSettings(eventConf, result[1].data, ConfigurationService);
-                    eventConf.pluginSettings = result[2].data;
-                    eventConf.pluginSettingsByPluginId = _.groupBy(result[2].data, 'pluginId');
+
                     if(eventConf.alfioPi) {
                         eventConf.alfioPiOptions = _.filter(eventConf.alfioPi.settings, function(pi) { return pi.key !== 'LABEL_LAYOUT'});
                         eventConf.labelLayout = _.find(eventConf.alfioPi.settings, function(pi) { return pi.key === 'LABEL_LAYOUT'});
                     }
+                    eventConf.extensionSettings = result[2].data;
                     eventConf.loading = false;
                 }, function() {
                     eventConf.loading = false;
@@ -336,7 +346,8 @@
                 return;
             }
             eventConf.loading = true;
-            $q.all([ConfigurationService.updateEventConfig(eventConf.organizationId, eventConf.eventId, eventConf.settings), ConfigurationService.bulkUpdatePlugins(eventConf.eventId, eventConf.pluginSettings)]).then(function() {
+            $q.all([ConfigurationService.updateEventConfig(eventConf.organizationId, eventConf.eventId, eventConf.settings),
+                ExtensionService.saveBulkEventSetting(eventConf.organizationId, eventConf.eventId, eventConf.extensionSettings)]).then(function() {
                 load();
                 NotificationHandler.showSuccess("Configurations have been saved successfully");
             }, function(e) {
@@ -350,12 +361,16 @@
             return ConfigurationService.removeEventConfig(config, eventConf.eventId);
         };
 
+        eventConf.deleteExtensionSetting = function(config) {
+            return ExtensionService.deleteEventSettingValue(eventConf.organizationId, eventConf.eventId, config);
+        };
+
         $rootScope.$on('ReloadSettings', function() {
             load();
         });
     }
 
-    EventConfigurationController.$inject = ['ConfigurationService', 'EventService', 'NotificationHandler', '$q', '$rootScope', '$stateParams'];
+    EventConfigurationController.$inject = ['ConfigurationService', 'EventService', 'ExtensionService', 'NotificationHandler', '$q', '$rootScope', '$stateParams'];
 
     function loadSettings(container, settings, ConfigurationService) {
         var general = settings['GENERAL'] || [];
@@ -460,15 +475,12 @@
                                 MAPS_HERE_APP_CODE: _.find(settings['MAP'], function(e) {return e.key === 'MAPS_HERE_APP_CODE';})
                             };
                         });
-                        ctrl.saveSettings = function(frm, settings, pluginSettings) {
+                        ctrl.saveSettings = function(frm, settings) {
                             if(!frm.$valid) {
                                 return;
                             }
                             ctrl.loading = true;
                             var promises = [ConfigurationService.bulkUpdate(settings)];
-                            if(angular.isDefined(pluginSettings)) {
-                                promises.push(ConfigurationService.bulkUpdatePlugins(pluginSettings));
-                            }
                             $q.all(promises).then(function() {
                                 ctrl.loading = false;
                                 $scope.$close(true);

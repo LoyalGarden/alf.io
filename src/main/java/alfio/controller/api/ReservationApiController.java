@@ -24,6 +24,7 @@ import alfio.manager.TicketReservationManager;
 import alfio.manager.i18n.I18nManager;
 import alfio.model.*;
 import alfio.model.result.ValidationResult;
+import alfio.model.transaction.PaymentProxy;
 import alfio.repository.EventRepository;
 import alfio.repository.TicketReservationRepository;
 import alfio.util.Json;
@@ -46,6 +47,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static alfio.model.PriceContainer.VatStatus.*;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 @RestController
@@ -94,10 +96,33 @@ public class ReservationApiController {
 
         Optional<ValidationResult> validationResult = assignmentResult.map(Triple::getLeft);
         if(validationResult.isPresent() && validationResult.get().isSuccess()) {
-            result.put("partial", templateManager.renderServletContextResource("/WEB-INF/templates/event/assign-ticket-result.ms", model.asMap(), request, TemplateManager.TemplateOutput.HTML));
+            result.put("partial", templateManager.renderServletContextResource("/WEB-INF/templates/event/assign-ticket-result.ms",
+                assignmentResult.get().getMiddle(),//<- ugly, but will be removed
+                model.asMap(), request, TemplateManager.TemplateOutput.HTML));
         }
         result.put("validationResult", validationResult.orElse(ValidationResult.failed(new ValidationResult.ErrorDescriptor("fullName", "error.fullname"))));
         return result;
+    }
+
+    @PostMapping("/event/{eventName}/reservation/{reservationId}/reset-billing-info")
+    @Transactional
+    public ResponseEntity<Boolean> resetVat(@PathVariable("eventName") String eventName,
+                                            @PathVariable("reservationId") String reservationId) {
+        boolean res = eventRepository
+            .findOptionalByShortName(eventName)
+            .flatMap(e -> ticketReservationRepository.findOptionalReservationById(reservationId).map(r -> Pair.of(e, r)))
+            .filter(eventAndReservation -> eventAndReservation.getRight().getStatus() == TicketReservation.TicketReservationStatus.PENDING)
+            .map(eventAndReservation -> {
+                Event event = eventAndReservation.getLeft();
+                TicketReservation tr = eventAndReservation.getRight();
+                ticketReservationRepository.resetBillingData(tr.getId());
+
+                OrderSummary orderSummary = ticketReservationManager.orderSummaryForReservationId(reservationId, event, Locale.forLanguageTag(tr.getUserLanguage()));
+                ticketReservationRepository.addReservationInvoiceOrReceiptModel(reservationId, Json.toJson(orderSummary));
+                return true;
+            }).orElse(false);
+
+        return new ResponseEntity<>(res, res ? HttpStatus.OK : HttpStatus.BAD_REQUEST);
     }
 
     @RequestMapping(value = "/event/{eventName}/reservation/{reservationId}/vat-validation", method = RequestMethod.POST)
@@ -119,17 +144,17 @@ public class ReservationApiController {
             .filter(t -> t.getRight().isValid())
             .ifPresent(t -> {
                 VatDetail vd = t.getRight();
-                String billingAddress = paymentForm.getBillingAddress();
-                if(t.getRight().isVatExempt()) {
-                    billingAddress = vd.getName() + "\n" + vd.getAddress();
-                    PriceContainer.VatStatus vatStatus = t.getLeft().getVatStatus() == NOT_INCLUDED ? NOT_INCLUDED_EXEMPT : INCLUDED_EXEMPT;
-                    ticketReservationRepository.updateBillingData(vatStatus, vd.getVatNr(), country, paymentForm.isInvoiceRequested(), reservationId);
-                    OrderSummary orderSummary = ticketReservationManager.orderSummaryForReservationId(reservationId, t.getLeft(), Locale.forLanguageTag(t.getMiddle().getUserLanguage()));
-                    ticketReservationRepository.addReservationInvoiceOrReceiptModel(reservationId, Json.toJson(orderSummary));
+                String billingAddress = vd.getName() + "\n" + vd.getAddress();
+                if(isNotBlank(vd.getName()) || isNotBlank(vd.getAddress())) {
+                    billingAddress = billingAddress.trim() + "\n" + new Locale("", country).getDisplayCountry(locale);
                 }
+                PriceContainer.VatStatus vatStatus = determineVatStatus(t.getLeft().getVatStatus(), t.getRight().isVatExempt());
+                ticketReservationRepository.updateBillingData(vatStatus, vd.getVatNr(), country, paymentForm.isInvoiceRequested(), reservationId);
+                OrderSummary orderSummary = ticketReservationManager.orderSummaryForReservationId(reservationId, t.getLeft(), Locale.forLanguageTag(t.getMiddle().getUserLanguage()));
+                ticketReservationRepository.addReservationInvoiceOrReceiptModel(reservationId, Json.toJson(orderSummary));
                 ticketReservationRepository.updateTicketReservation(reservationId, t.getMiddle().getStatus().name(), paymentForm.getEmail(),
                     paymentForm.getFullName(), paymentForm.getFirstName(), paymentForm.getLastName(), locale.getLanguage(), billingAddress, null,
-                    Optional.ofNullable(paymentForm.getPaymentMethod()).map(p -> p.name()).orElse(null));
+                    Optional.ofNullable(paymentForm.getPaymentMethod()).map(PaymentProxy::name).orElse(null), paymentForm.getCustomerReference());
                 paymentForm.getTickets().forEach((ticketId, owner) -> {
                     if(isNotEmpty(owner.getEmail()) && ((isNotEmpty(owner.getFirstName()) && isNotEmpty(owner.getLastName())) || isNotEmpty(owner.getFullName()))) {
                         ticketHelper.preAssignTicket(eventName, reservationId, ticketId, owner, Optional.empty(), request, (tr) -> {}, Optional.empty());
@@ -147,5 +172,12 @@ public class ReservationApiController {
                 }
             })
             .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    private static PriceContainer.VatStatus determineVatStatus(PriceContainer.VatStatus current, boolean isVatExempt) {
+        if(!isVatExempt) {
+            return current;
+        }
+        return current == NOT_INCLUDED ? NOT_INCLUDED_EXEMPT : INCLUDED_EXEMPT;
     }
 }

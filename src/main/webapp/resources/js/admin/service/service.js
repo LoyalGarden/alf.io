@@ -157,7 +157,7 @@
                 return $http['get']('/admin/api/event/additional-field/templates').error(HttpErrorHandler.handle);
             },
             getMessagesPreview: function(eventName, categoryId, messages) {
-                var queryString = angular.isDefined(categoryId) && categoryId !== "" ? '?categoryId='+categoryId : '';
+                var queryString = angular.isNumber(categoryId) ? '?categoryId='+categoryId : '';
                 return $http['post']('/admin/api/events/'+eventName+'/messages/preview'+queryString, messages).error(HttpErrorHandler.handle);
             },
             sendMessages: function(eventName, categoryId, messages) {
@@ -313,8 +313,8 @@
                 return promise;
             },
 
-            removeTickets: function(eventName, reservationId, ticketIds, ticketIdsToRefund, notify) {
-                return $http.post('/admin/api/reservation/event/'+eventName+'/'+reservationId+'/remove-tickets', {ticketIds: ticketIds, refundTo: ticketIdsToRefund, notify : notify});
+            removeTickets: function(eventName, reservationId, ticketIds, ticketIdsToRefund, notify, updateInvoice) {
+                return $http.post('/admin/api/reservation/event/'+eventName+'/'+reservationId+'/remove-tickets', {ticketIds: ticketIds, refundTo: ticketIdsToRefund, notify : notify, forceInvoiceUpdate: updateInvoice});
             },
 
             cancelReservation: function(eventName, reservationId, refund, notify) {
@@ -400,7 +400,6 @@
                     var location = view[0].Result[0].Location;
                     var pos = location.DisplayPosition;
                     var ret = {latitude: pos.Latitude, longitude: pos.Longitude};
-                    console.log(view);
 
                     $q.all([getMapUrl(ret.latitude, ret.longitude), locService.getTimezone(ret.latitude, ret.longitude)]).then(function(success) {
                         ret.mapUrl = success[0];

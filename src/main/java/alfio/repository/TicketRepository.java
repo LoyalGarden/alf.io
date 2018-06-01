@@ -19,7 +19,6 @@ package alfio.repository;
 import alfio.model.FullTicketInfo;
 import alfio.model.Ticket;
 import alfio.model.TicketCSVInfo;
-import alfio.model.TicketWithReservationAndTransaction;
 import ch.digitalfondue.npjt.*;
 
 import java.util.Date;
@@ -55,23 +54,6 @@ public interface TicketRepository {
     @Query("select count(*) from ticket where status in ("+CONFIRMED+") and category_id = :categoryId and event_id = :eventId and full_name is not null and email_address is not null")
     Integer countAssignedTickets(@Bind("eventId") int eventId, @Bind("categoryId") int categoryId);
 
-
-    String FIND_ALL_MODIFIED_TICKETS_WITH_RESERVATION_AND_TRANSACTION = "select * from ticket_and_reservation_and_tx where t_status in ('PENDING', 'ACQUIRED', 'TO_BE_PAID', 'CANCELLED', 'CHECKED_IN') and t_category_id = :categoryId and t_event_id = :eventId and " +
-        " (:search is null or (lower(t_uuid) like lower(:search) or lower(t_full_name) like lower(:search) or lower(t_first_name) like lower(:search) or lower(t_last_name) like lower(:search) or lower(t_email_address) like lower(:search) or " +
-        "  lower(tr_full_name) like lower(:search) or lower(tr_first_name) like lower(:search) or lower(tr_last_name) like lower(:search) or lower(tr_email_address) like lower(:search))) " +
-        " order by tr_confirmation_ts asc, tr_id, t_uuid";
-
-    @Query("select * from (" + FIND_ALL_MODIFIED_TICKETS_WITH_RESERVATION_AND_TRANSACTION + " limit :pageSize offset :page) as d_tbl")
-    List<TicketWithReservationAndTransaction> findAllModifiedTicketsWithReservationAndTransaction(@Bind("eventId") int eventId,
-                                                                                                  @Bind("categoryId") int categoryId,
-                                                                                                  @Bind("page") int page,
-                                                                                                  @Bind("pageSize") int pageSize,
-                                                                                                  @Bind("search") String search);
-
-    @Query("select count(*) from (" + FIND_ALL_MODIFIED_TICKETS_WITH_RESERVATION_AND_TRANSACTION +" ) as d_tbl")
-    Integer countAllModifiedTicketsWithReservationAndTransaction(@Bind("eventId") int eventId,
-                                                                 @Bind("categoryId") int categoryId,
-                                                                 @Bind("search") String search);
 
     @Query("select count(*) from ticket where status in ("+CONFIRMED+", 'PENDING') and category_id = :categoryId and event_id = :eventId")
     Integer countConfirmedAndPendingTickets(@Bind("eventId") int eventId, @Bind("categoryId") int categoryId);
@@ -176,6 +158,12 @@ public interface TicketRepository {
     @Query("select * from ticket where id in (:ids)")
     List<Ticket> findByIds(@Bind("ids") List<Integer> ticketIds);
 
+    @Query("select uuid from ticket where id in (:ids)")
+    List<String> findUUIDs(@Bind("ids") List<Integer> ticketIds);
+
+    @Query("select distinct tickets_reservation_id from ticket where id in (:ids)")
+    List<String> findReservationIds(@Bind("ids") List<Integer> ticketIds);
+
     @Query("select * from ticket where special_price_id_fk = :specialPriceId")
     Optional<Ticket> findBySpecialPriceId(@Bind("specialPriceId") int specialPriceId);
 
@@ -193,7 +181,7 @@ public interface TicketRepository {
         " tr.id tr_id, tr.validity tr_validity, tr.status tr_status, tr.full_name tr_full_name, tr.first_name tr_first_name, tr.last_name tr_last_name, tr.email_address tr_email_address, tr.billing_address tr_billing_address," +
         " tr.confirmation_ts tr_confirmation_ts, tr.latest_reminder_ts tr_latest_reminder_ts, tr.payment_method tr_payment_method, " +
         " tr.offline_payment_reminder_sent tr_offline_payment_reminder_sent, tr.promo_code_id_fk tr_promo_code_id_fk, tr.automatic tr_automatic, tr.user_language tr_user_language, tr.direct_assignment tr_direct_assignment, tr.invoice_number tr_invoice_number, tr.invoice_model tr_invoice_model, " +
-        " tr.vat_status tr_vat_status, tr.vat_nr tr_vat_nr, tr.vat_country tr_vat_country, tr.invoice_requested tr_invoice_requested, tr.used_vat_percent tr_used_vat_percent, tr.vat_included tr_vat_included, " +
+        " tr.vat_status tr_vat_status, tr.vat_nr tr_vat_nr, tr.vat_country tr_vat_country, tr.invoice_requested tr_invoice_requested, tr.used_vat_percent tr_used_vat_percent, tr.vat_included tr_vat_included, tr.creation_ts tr_creation_ts, tr.customer_reference tr_customer_reference, " +
         " tc.id tc_id, tc.inception tc_inception, tc.expiration tc_expiration, tc.max_tickets tc_max_tickets, tc.name tc_name, tc.src_price_cts tc_src_price_cts, tc.access_restricted tc_access_restricted, tc.tc_status tc_tc_status, tc.event_id tc_event_id, tc.bounded tc_bounded, tc.category_code tc_category_code, " +
         " tc.valid_checkin_from tc_valid_checkin_from, tc.valid_checkin_to tc_valid_checkin_to, tc.ticket_validity_start tc_ticket_validity_start, tc.ticket_validity_end tc_ticket_validity_end" +
         " from ticket t " +
@@ -223,7 +211,7 @@ public interface TicketRepository {
         " tr.id tr_id, tr.validity tr_validity, tr.status tr_status, tr.full_name tr_full_name, tr.first_name tr_first_name, tr.last_name tr_last_name, tr.email_address tr_email_address, tr.billing_address tr_billing_address," +
         " tr.confirmation_ts tr_confirmation_ts, tr.latest_reminder_ts tr_latest_reminder_ts, tr.payment_method tr_payment_method, tr.offline_payment_reminder_sent tr_offline_payment_reminder_sent, tr.promo_code_id_fk tr_promo_code_id_fk, tr.automatic tr_automatic, tr.user_language tr_user_language, tr.direct_assignment tr_direct_assignment, " +
         " tr.vat_status tr_vat_status, tr.vat_nr tr_vat_nr, tr.vat_country tr_vat_country, tr.invoice_requested tr_invoice_requested, tr.used_vat_percent tr_used_vat_percent, tr.vat_included tr_vat_included, " +
-        " tr.invoice_number tr_invoice_number, tr.invoice_model tr_invoice_model from ticket t, tickets_reservation tr where t.event_id = :eventId and t.status in(" + CONFIRMED + ") and t.tickets_reservation_id = tr.id order by tr.confirmation_ts")
+        " tr.invoice_number tr_invoice_number, tr.invoice_model tr_invoice_model, tr.creation_ts tr_creation_ts, tr.customer_reference tr_customer_reference from ticket t, tickets_reservation tr where t.event_id = :eventId and t.status in(" + CONFIRMED + ") and t.tickets_reservation_id = tr.id order by tr.confirmation_ts")
     List<TicketCSVInfo> findAllConfirmedForCSV(@Bind("eventId") int eventId);
 
     @Query("select a.*, b.confirmation_ts from ticket a, tickets_reservation b where a.event_id = :eventId and a.status in(" + CONFIRMED + ") and a.tickets_reservation_id = b.id order by b.confirmation_ts")
@@ -245,7 +233,7 @@ public interface TicketRepository {
     int flagTicketAsReminderSent(@Bind("id") int ticketId);
 
     String RESET_TICKET = " TICKETS_RESERVATION_ID = null, FULL_NAME = null, EMAIL_ADDRESS = null, SPECIAL_PRICE_ID_FK = null, LOCKED_ASSIGNMENT = false, USER_LANGUAGE = null, REMINDER_SENT = false, SRC_PRICE_CTS = 0, FINAL_PRICE_CTS = 0, VAT_CTS = 0, DISCOUNT_CTS = 0, FIRST_NAME = null, LAST_NAME = null, EXT_REFERENCE = null ";
-    String RELEASE_TICKET_QUERY = "update ticket set status = 'RELEASED', uuid = :newUuid, " + RESET_TICKET + " where id = :ticketId and status = 'ACQUIRED' and tickets_reservation_id = :reservationId and event_id = :eventId";
+    String RELEASE_TICKET_QUERY = "update ticket set status = 'RELEASED', uuid = :newUuid, " + RESET_TICKET + " where id = :ticketId and status in('ACQUIRED', 'PENDING', 'TO_BE_PAID') and tickets_reservation_id = :reservationId and event_id = :eventId";
 
     @Query(RELEASE_TICKET_QUERY)
     int releaseTicket(@Bind("reservationId") String reservationId, @Bind("newUuid") String newUuid, @Bind("eventId") int eventId, @Bind("ticketId") int ticketId);

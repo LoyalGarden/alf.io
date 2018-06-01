@@ -243,13 +243,13 @@
             });
         }
 
-        $('#first-name, #last-name').change(function() {
+        $('#first-name.autocomplete-src, #last-name.autocomplete-src').change(function() {
             fillAttendeeData($('#first-name').val(), $('#last-name').val());
         });
-        $('#full-name').change(function() {
+        $('#full-name.autocomplete-src').change(function() {
             fillAttendeeData($(this).val());
         });
-        $('#email').change(function() {
+        $('#email.autocomplete-src').change(function() {
             updateIfNotTouched($('#attendeesData').find('.attendee-email').first(), $(this).val());
         });
 
@@ -257,6 +257,12 @@
             .change(function() {
                 $(this).removeClass('untouched');
             });
+
+        $('#copy-from-contact-data').click(function() {
+            var firstOrFullName = $('#first-name').val() || $('#full-name').val();
+            fillAttendeeData(firstOrFullName, $('#last-name').val());
+            $('#attendeesData').find('.attendee-email').first().val($('#email').val());
+        });
 
         var postponeAssignment = $('#postpone-assignment');
 
@@ -276,7 +282,7 @@
         }
 
         function fillAttendeeData(firstOrFullName, lastName) {
-            var useFullName = (typeof lastName == "undefined");
+            var useFullName = (typeof lastName === "undefined");
             var element = $('#attendeesData');
             if(useFullName) {
                 updateIfNotTouched(element.find('.attendee-full-name').first(), firstOrFullName);
@@ -294,11 +300,10 @@
 
 
         function disableBillingFields() {
-            $('#vatNr,#vatCountryCode,#billing-address[data-invoice-enabled]').attr('required', false).attr('disabled', '');
+            $('#vatNr,#vatCountryCode').attr('required', false).attr('disabled', '');
         }
 
         disableBillingFields();
-
 
 
         $('#invoice-requested').change(function() {
@@ -308,23 +313,21 @@
                 element.removeClass('hidden');
                 euBillingCountry.change();
                 if(euBillingCountry.length === 0) {
-                    $('#billing-address-container').removeClass(hiddenClasses);
+                    //$('#billing-address-container').removeClass(hiddenClasses);
                     $('#billing-address').attr('required', true).removeAttr('disabled');
                 }
             } else {
                 element.find('.field-required').attr('required', false);
+                $('#billing-address').attr('required', false).attr('disabled');
                 element.addClass('hidden');
                 disableBillingFields();
             }
         });
 
-
-
-
         var euBillingCountry = $('#vatCountry');
         euBillingCountry.change(function() {
             if($(this).val() === '') {
-                $('#billing-address-container').removeClass(hiddenClasses);
+                //$('#billing-address-container').removeClass(hiddenClasses);
                 $('#billing-address').attr('required', true).removeAttr('disabled');
                 $('#validation-result-container, #vat-number-container, #validateVAT').addClass(hiddenClasses);
                 $('#vatNr').attr('required', false).attr('disabled', '');
@@ -335,8 +338,49 @@
                 $('#billing-address').attr('required', false).attr('disabled');
                 $('#vatNr').attr('required', true).removeAttr('disabled');
                 $("#vatCountryCode").attr('required', true).removeAttr('disabled', '');
+
+                var countryCode = $(this).val();
+                var validateVATButton = $("#validateVAT");
+                if($("#optgroup-eu-countries-list option[value="+countryCode+"]").length === 1) {
+                    validateVATButton.text(validateVATButton.attr('data-text'));
+                } else {
+                    validateVATButton.text(validateVATButton.attr('data-text-non-eu'));
+                }
             }
         });
+
+        var invoiceOnlyMode = $('#invoice-requested[type=hidden]') && $('#invoice-requested[type=hidden]').val() == 'true';
+
+        var euVATCheckingEnabled = $("#invoice[data-eu-vat-checking-enabled=true]").length === 1;
+
+        if(!invoiceOnlyMode && euVATCheckingEnabled && $("input[type=hidden][name=vatNr]").length === 0) {
+            $("#billing-address-container").addClass(hiddenClasses);
+        }
+
+        // invoice only mode
+        if(invoiceOnlyMode) {
+            $('#billing-address').attr('required', true).removeAttr('disabled');
+            $('#billing-address-container').removeClass(hiddenClasses);
+            $('#invoice').removeClass('hidden');
+            $("#eu-vat-check-countries").addClass(hiddenClasses);
+        }
+
+        $("#add-company-billing-details").change(function() {
+            if($(this).is(':checked')) {
+                $('#billing-address').attr('required', false).attr('disabled');
+                $('#billing-address-container').addClass(hiddenClasses);
+                $("#eu-vat-check-countries").removeClass(hiddenClasses);
+                if(euVATCheckingEnabled) {
+                    $("#vatCountry").attr('required', true).removeAttr('disabled', '');
+                }
+            } else {
+                $('#billing-address').attr('required', true).removeAttr('disabled');
+                $('#billing-address-container').removeClass(hiddenClasses);
+                $("#eu-vat-check-countries").addClass(hiddenClasses);
+                $("#vatCountry").removeAttr('required').removeAttr('disabled', '');
+            }
+        });
+        //
 
         $('#validateVAT').click(function() {
             var frm = $(this.form);
@@ -349,6 +393,7 @@
             var resultContainer = $('#validation-result');
             if(vatNr !== '' && country !== '') {
                 var btn = $(this);
+                var previousText = btn.text();
                 btn.html('<i class="fa fa-circle-o-notch fa-spin"></i>');
                 $('#continue-button').attr('disabled', true);
                 jQuery.ajax({
@@ -368,13 +413,27 @@
                         }
                     },
                     complete: function(xhr) {
-                        btn.html(btn.attr('data-text'));
+                        btn.text(previousText);
                         $('#continue-button').attr('disabled', false);
                     }
 
                 });
             }
         })
+
+        $('#reset-billing-information').click(function() {
+            var action = $(this).attr('data-reset-billing-information-url');
+            var frm = $(this.form);
+            jQuery.ajax({
+                url: action,
+                type:'POST',
+                success: function() {
+                    window.location.reload();
+                },
+                data:frm.serialize()
+            });
+        });
+
     });
 
     window.recaptchaLoadCallback = function() {

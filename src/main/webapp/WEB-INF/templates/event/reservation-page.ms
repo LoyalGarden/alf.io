@@ -64,7 +64,7 @@
         {{^orderSummary.free}}
             {{#orderSummary.displayVat}}
                 {{^event.vatIncluded}}
-                    <tr><td colspan="3">{{#i18n}}reservation-page.vat [{{event.vat}}]{{/i18n}}</td><td class="text-right">{{orderSummary.totalVAT}} {{event.currency}}</td></tr>
+                    <tr><td colspan="3">{{#i18n}}reservation-page.vat [{{event.vat}}] [{{vatTranslation}}]{{/i18n}}</td><td class="text-right">{{orderSummary.totalVAT}} {{event.currency}}</td></tr>
                 {{/event.vatIncluded}}
             {{/orderSummary.displayVat}}
         {{/orderSummary.free}}
@@ -73,11 +73,11 @@
         {{^orderSummary.free}}
             {{#orderSummary.displayVat}}
                 {{#event.vatIncluded}}
-                    <tr><td colspan="3">{{#i18n}}reservation-page.vat-included [{{event.vat}}]{{/i18n}}</td><td class="text-right">{{orderSummary.totalVAT}} {{event.currency}}</td></tr>
+                    <tr><td colspan="3">{{#i18n}}reservation-page.vat-included [{{event.vat}}] [{{vatTranslation}}]{{/i18n}}</td><td class="text-right">{{orderSummary.totalVAT}} {{event.currency}}</td></tr>
                 {{/event.vatIncluded}}
             {{/orderSummary.displayVat}}
             {{^orderSummary.displayVat}}
-                <tr><td colspan="4">{{#i18n}}invoice.vat-voided{{/i18n}}</td></tr>
+                <tr><td colspan="4">{{#i18n}}invoice.vat-voided [{{vatTranslation}}]{{/i18n}}</td></tr>
             {{/orderSummary.displayVat}}
         {{/orderSummary.free}}
     </tfoot>
@@ -119,6 +119,8 @@
         <input type="hidden" name="paypalPaymentId" value="{{paypalPaymentId}}">
         <input type="hidden" name="paypalPayerID" value="{{paypalPayerID}}">
         <input type="hidden" name="termAndConditionsAccepted" value="true">
+        <input type="hidden" name="invoiceRequested" value="{{invoiceRequested}}">
+        <input type="hidden" name="customerReference" value="{{customerReference}}">
     <div class="alert alert-success">
         <h3><i class="fa fa-check"></i> {{#i18n}}reservation-page.paypal.confirm{{/i18n}}</h3>
     </div>
@@ -134,14 +136,14 @@
             <div class="col-xs-12 col-sm-6">
                 <div class="form-group {{#field-has-error}}[firstName] has-error{{/field-has-error}}">
                     <label for="first-name" class="control-label">{{#i18n}}common.first-name{{/i18n}}</label>
-                    <input type="text" name="firstName" id="first-name" required class="form-control" autocomplete="fname" maxlength="255" value="{{paymentForm.firstName}}">
+                    <input type="text" name="firstName" id="first-name" required class="form-control {{#attendeeAutocompleteEnabled}}autocomplete-src{{/attendeeAutocompleteEnabled}}" autocomplete="fname" maxlength="255" value="{{paymentForm.firstName}}">
                     {{#field-has-error}}[firstName]<span class="help-block text-danger">{{#i18n}}{{#field-error}}firstName{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
                 </div>
             </div>
             <div class="col-xs-12 col-sm-6">
                 <div class="form-group {{#field-has-error}}[lastName] has-error{{/field-has-error}}">
                     <label for="last-name" class="control-label">{{#i18n}}common.last-name{{/i18n}}</label>
-                    <input type="text" name="lastName" id="last-name" required class="form-control" autocomplete="lname" maxlength="255" value="{{paymentForm.lastName}}">
+                    <input type="text" name="lastName" id="last-name" required class="form-control {{#attendeeAutocompleteEnabled}}autocomplete-src{{/attendeeAutocompleteEnabled}}" autocomplete="lname" maxlength="255" value="{{paymentForm.lastName}}">
                     {{#field-has-error}}[lastName]<span class="help-block text-danger">{{#i18n}}{{#field-error}}lastName{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
                 </div>
             </div>
@@ -150,15 +152,17 @@
         {{^useFirstAndLastName}}
         <div class="form-group {{#field-has-error}}[fullName] has-error{{/field-has-error}}">
             <label for="full-name" class="control-label">{{#i18n}}common.full-name{{/i18n}}</label>
-            <input type="text" name="fullName" id="full-name" required class="form-control" autocomplete="name" maxlength="255" value="{{paymentForm.fullName}}">
+            <input type="text" name="fullName" id="full-name" required class="form-control {{#attendeeAutocompleteEnabled}}autocomplete-src{{/attendeeAutocompleteEnabled}}" autocomplete="name" maxlength="255" value="{{paymentForm.fullName}}">
             {{#field-has-error}}[fullName]<span class="help-block text-danger">{{#i18n}}{{#field-error}}fullName{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
         </div>
         {{/useFirstAndLastName}}
+
+
         <div class="row">
             <div class="col-xs-12 {{#captchaRequestedFreeOfCharge}}col-md-6{{/captchaRequestedFreeOfCharge}}">
                 <div class="form-group {{#field-has-error}}[email] has-error{{/field-has-error}}">
                     <label for="email" class="control-label">{{#i18n}}common.email{{/i18n}}</label>
-                    <input type="email" name="email" id="email" required class="form-control" autocomplete="email" maxlength="255" value="{{paymentForm.email}}">
+                    <input type="email" name="email" id="email" required class="form-control {{#attendeeAutocompleteEnabled}}autocomplete-src{{/attendeeAutocompleteEnabled}}" autocomplete="email" maxlength="255" value="{{paymentForm.email}}">
                     {{#field-has-error}}[email]<span class="help-block text-danger">{{#i18n}}{{#field-error}}email{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
                 </div>
             </div>
@@ -169,8 +173,13 @@
             {{/captchaRequestedFreeOfCharge}}
         </div>
 
-
-
+    {{#customerReferenceEnabled}}
+        <div class="form-group {{#field-has-error}}[customerReference] has-error{{/field-has-error}}">
+            <label for="customerReference" class="control-label">{{#i18n}}common.customer-reference{{/i18n}}</label>
+            <input type="text" name="customerReference" id="customerReference" class="form-control" maxlength="255" value="{{paymentForm.customerReference}}">
+            {{#field-has-error}}[customerReference]<span class="help-block text-danger">{{#i18n}}{{#field-error}}customerReference{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
+        </div>
+    {{/customerReferenceEnabled}}
 
     <div class="page-header">
         <h2>{{#i18n}}reservation-page.attendees{{/i18n}}</h2>
@@ -190,7 +199,7 @@
             {{#ticketsByCategory}}
                 {{#value}}
                     <li class="list-group-item">
-                        <h3><i class="fa fa-ticket"></i> {{#i18n}}reservation-page-complete.ticket-nr{{/i18n}}<span class="ticket-counter"></span> - <small>{{key.name}}</small></h3>
+                        <h3><i class="fa fa-ticket"></i> {{#i18n}}reservation-page-complete.ticket-nr{{/i18n}}<span class="ticket-counter"></span> <span class="hidden-xs hidden-xs">- <small>{{key.name}}</small></span>{{^attendeeAutocompleteEnabled}}{{#-first}}<button type="button" id="copy-from-contact-data" class="btn btn-xs btn-default tooltip-handler pull-right" title="{{#i18n}}reservation-page.copy-attendee{{/i18n}}"><i class="fa fa-clone"></i><span class="sr-only">{{#i18n}}reservation-page.copy-attendee{{/i18n}}</span></button>{{/-first}}{{/attendeeAutocompleteEnabled}}</h3>
                         <div class="form-horizontal">
                             <div data-collapse-enabled="true" class="collapsible-container">
                                 {{> /event/attendee-fields }}
@@ -247,26 +256,53 @@
         {{/activePaymentMethods}}
 
     {{#invoiceIsAllowed}}
-        <div class="checkbox wMarginTop">
-            <label>
-                <input type="checkbox" name="invoiceRequested" id="invoice-requested" value="true" {{#paymentForm.invoiceRequested}}checked{{/paymentForm.invoiceRequested}}>
-                {{#i18n}}reservation-page.i-need-an-invoice{{/i18n}}
-            </label>
-        </div>
+        {{^vatNrIsLinked}}
+            {{#onlyInvoice}}
+                <input type="hidden" name="invoiceRequested" id="invoice-requested" value="true">
+                {{#euVatCheckingEnabled}}
+                    <div class="checkbox wMarginTop">
+                        <label>
+                            <input type="checkbox" name="addCompanyBillingDetails" id="add-company-billing-details" value="true">
+                            {{#i18n}}reservation.add-company-billing-details [{{vatTranslation}}]{{/i18n}}
+                        </label>
+                    </div>
+                {{/euVatCheckingEnabled}}
+            {{/onlyInvoice}}
+            {{^onlyInvoice}}
+                <div class="checkbox wMarginTop">
+                    <label>
+                        <input type="checkbox" name="invoiceRequested" id="invoice-requested" value="true" {{#paymentForm.invoiceRequested}}checked{{/paymentForm.invoiceRequested}}>
+                        {{#i18n}}reservation-page.i-need-an-invoice{{/i18n}}
+                    </label>
+                </div>
+            {{/onlyInvoice}}
+        {{/vatNrIsLinked}}
+        {{#vatNrIsLinked}}
+            <div class="page-header wMarginTop">
+                <h2>{{#i18n}}invoice.title{{/i18n}}</h2>
+            </div>
+        {{/vatNrIsLinked}}
     {{/invoiceIsAllowed}}
 
-    <div id="invoice" class="wMarginTop {{#invoiceIsAllowed}}{{^paymentForm.invoiceRequested}}hidden{{/paymentForm.invoiceRequested}}{{/invoiceIsAllowed}}">
+    <div id="invoice" class="wMarginTop {{#invoiceIsAllowed}}{{^paymentForm.invoiceRequested}}hidden{{/paymentForm.invoiceRequested}}{{/invoiceIsAllowed}}" {{#euVatCheckingEnabled}}data-eu-vat-checking-enabled="true"{{/euVatCheckingEnabled}}>
         {{#euVatCheckingEnabled}}
-            {{#orderSummary.displayVat}}
-                <div class="row">
+            {{^vatNrIsLinked}}
+                <div class="row" id="eu-vat-check-countries">
                     <div class="col-xs-12 col-sm-4">
                         <div class="form-group">
                             <label for="vatCountry">{{#i18n}}reservation-page-complete.country{{/i18n}}</label>
-                            <select name="vatCountryCode" id="vatCountry" value="{{paymentForm.vatCountryCode}}" class="form-control">
-                                <option value="">{{#i18n}}reservation-page.country.outside-eu{{/i18n}}</option>
-                                {{#euCountries}}
-                                    <option value="{{left}}">{{right}}</option>
-                                {{/euCountries}}
+                            <select name="vatCountryCode" id="vatCountry" value="{{paymentForm.vatCountryCode}}" class="form-control field-required">
+                                <option value="">{{#i18n}}reservation-page.country.select{{/i18n}}</option>
+                                <optgroup label="{{#i18n}}reservation-page.eu-countries{{/i18n}}" id="optgroup-eu-countries-list">
+                                {{#euCountriesForVat}}
+                                    <option value="{{left}}">{{left}} - {{right}}</option>
+                                {{/euCountriesForVat}}
+                                </optgroup>
+                                <optgroup label="{{#i18n}}reservation-page.all-countries{{/i18n}}">
+                                {{#countriesForVat}}
+                                    <option value="{{left}}">{{left}} - {{right}}</option>
+                                {{/countriesForVat}}
+                                </optgroup>
                             </select>
                         </div>
                     </div>
@@ -274,11 +310,13 @@
                     <div id="vat-number-container" class="{{^paymentForm.hasVatCountryCode}}hidden-xs hidden-sm hidden-md hidden-lg{{/paymentForm.hasVatCountryCode}}">
                             <div class="col-xs-6 col-sm-8">
                                 <div class="form-group">
-                                    <label for="vatNr">{{#i18n}}invoice.vat{{/i18n}}</label>
+                                    <label for="vatNr">{{#i18n}}invoice.vat [{{vatTranslation}}]{{/i18n}}</label>
                                     <div class="input-group">
                                         <input id="vatNr" type="text" required name="vatNr" class="form-control" value="{{paymentForm.vatNr}}"/>
                                         <div class="input-group-btn">
-                                            <button type="button" class="btn btn-warning btn-block" data-validation-url="{{request.contextPath}}/event/{{event.shortName}}/reservation/{{reservation.id}}/vat-validation" id="validateVAT" data-text="{{#i18n}}invoice.validate.vat{{/i18n}}">{{#i18n}}invoice.validate.vat{{/i18n}}</button>
+                                            <button type="button" class="btn btn-warning btn-block" data-validation-url="{{request.contextPath}}/event/{{event.shortName}}/reservation/{{reservation.id}}/vat-validation" id="validateVAT"
+                                                data-text="{{#i18n}}invoice.validate.vat [{{vatTranslation}}]{{/i18n}}"
+                                                data-text-non-eu="{{#i18n}}common.apply{{/i18n}}">{{#i18n}}invoice.validate.vat [{{vatTranslation}}]{{/i18n}}</button>
                                         </div>
                                     </div>
                                 </div>
@@ -287,17 +325,17 @@
                 </div>
                 <div id="validation-result-container" class="row {{^paymentForm.hasVatCountryCode}}hidden-xs hidden-sm hidden-md hidden-lg{{/paymentForm.hasVatCountryCode}}">
                     <div class="col-xs-10 text-right">
-                        <span id="validation-result" class="text-danger" data-validation-error-msg="{{#i18n}}reservation-page.vat-validation-error{{/i18n}}"
-                              data-generic-error-msg="{{#i18n}}reservation-page.vat-error{{/i18n}}"
-                              data-validation-required-msg="{{#i18n}}reservation-page.vat-validation-required{{/i18n}}"></span>
+                        <span id="validation-result" class="text-danger" data-validation-error-msg="{{#i18n}}reservation-page.vat-validation-error [{{vatTranslation}}]{{/i18n}}"
+                              data-generic-error-msg="{{#i18n}}reservation-page.vat-error [{{vatTranslation}}]{{/i18n}}"
+                              data-validation-required-msg="{{#i18n}}reservation-page.vat-validation-required [{{vatTranslation}}]{{/i18n}}"></span>
                     </div>
                 </div>
-            {{/orderSummary.displayVat}}
+            {{/vatNrIsLinked}}
             <div class="clearfix"></div>
         {{/euVatCheckingEnabled}}
 
         <div class="row">
-            {{^orderSummary.displayVat}}
+            {{#vatNrIsLinked}}
                 <input type="hidden" name="vatCountryCode" value="{{paymentForm.vatCountryCode}}">
                 <input type="hidden" name="vatNr" value="{{paymentForm.vatNr}}"/>
                 <input type="hidden" name="invoiceRequested" value="true">
@@ -309,22 +347,42 @@
                 </div>
                 <div class="col-xs-6 col-md-2">
                     <div class="form-group">
-                        <label class="control-label">{{#i18n}}invoice.vat{{/i18n}}</label>
+                        <label class="control-label">{{#i18n}}invoice.vat [{{vatTranslation}}]{{/i18n}}</label>
                         <p class="form-control-static">{{paymentForm.vatNr}}</p>
                     </div>
                 </div>
-            {{/orderSummary.displayVat}}
-            <div class="col-xs-12 {{^orderSummary.displayVat}}col-md-8{{/orderSummary.displayVat}}">
+            {{/vatNrIsLinked}}
+            <div class="col-xs-12 {{#vatNrIsLinked}}col-md-8{{/vatNrIsLinked}}">
                 <div class="form-group {{#field-has-error}}[billingAddress] has-error{{/field-has-error}}" id="billing-address-container">
                     <label for="billing-address" class="control-label">{{#i18n}}{{billingAddressLabel}}{{/i18n}}</label>
                     <textarea name="billingAddress" id="billing-address" class="form-control" maxlength="450" {{#invoiceIsAllowed}}data-invoice-enabled="true"{{/invoiceIsAllowed}}>{{paymentForm.billingAddress}}</textarea>
                     {{#field-has-error}}[billingAddress]<span class="help-block text-danger">{{#i18n}}{{#field-error}}billingAddress{{/field-error}}{{/i18n}}</span>{{/field-has-error}}
                 </div>
             </div>
+            {{#euVatCheckingEnabled}}{{#vatNrIsLinked}}
+            <div class="col-md-6 col-md-push-6 col-xs-12">
+                <div class="form-group">
+                    <button type="button" id="reset-billing-information" class="btn btn-warning btn-block"
+                        data-reset-billing-information-url="{{request.contextPath}}/event/{{event.shortName}}/reservation/{{reservation.id}}/reset-billing-info">
+                        {{#i18n}}reservation-page.reset-billing-informations{{/i18n}}
+                    </button>
+                </div>
+            </div>
+            {{/vatNrIsLinked}}{{/euVatCheckingEnabled}}
+
         </div>
     </div>
     {{/orderSummary.free}}
     <hr/>
+
+{{#event.privacyPolicyLinkOrNull}}
+    <div class="checkbox wMarginTop wMarginBottom">
+        <label>
+            <input type="checkbox" required name="privacyPolicyAccepted" value="true">
+            {{#i18n}}reservation-page.privacy.prefix{{/i18n}} <a href="{{event.privacyPolicyLinkOrNull}}" target="_blank">{{#i18n}}reservation-page.privacy.link.text{{/i18n}}</a>{{#i18n}}reservation-page.privacy.suffix{{/i18n}}
+        </label>
+    </div>
+{{/event.privacyPolicyLinkOrNull}}
 
     <div class="checkbox wMarginTop wMarginBottom">
         <label>

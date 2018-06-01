@@ -16,14 +16,12 @@
  */
 package alfio.manager;
 
-import alfio.manager.support.CheckInStatus;
-import alfio.manager.support.DefaultCheckInResult;
-import alfio.manager.support.OnSitePaymentResult;
-import alfio.manager.support.TicketAndCheckInResult;
+import alfio.manager.support.*;
 import alfio.manager.system.ConfigurationManager;
 import alfio.model.*;
 import alfio.model.Ticket.TicketStatus;
 import alfio.model.audit.ScanAudit;
+import alfio.model.system.Configuration;
 import alfio.model.transaction.PaymentProxy;
 import alfio.repository.*;
 import alfio.repository.audit.ScanAuditRepository;
@@ -59,7 +57,6 @@ import java.util.stream.Collectors;
 
 import static alfio.manager.support.CheckInStatus.*;
 import static alfio.model.system.ConfigurationKeys.*;
-import static alfio.util.OptionalWrapper.optionally;
 
 @Component
 @Transactional
@@ -78,6 +75,7 @@ public class CheckInManager {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final TicketReservationManager ticketReservationManager;
+    private final ExtensionManager extensionManager;
 
 
     private void checkIn(String uuid) {
@@ -85,6 +83,7 @@ public class CheckInManager {
         Validate.isTrue(ticket.getStatus() == TicketStatus.ACQUIRED);
         ticketRepository.updateTicketStatusWithUUID(uuid, TicketStatus.CHECKED_IN.toString());
         ticketRepository.toggleTicketLocking(ticket.getId(), ticket.getCategoryId(), true);
+        extensionManager.handleTicketCheckedIn(ticketRepository.findByUUID(uuid));
     }
 
     private void acquire(String uuid) {
@@ -94,10 +93,11 @@ public class CheckInManager {
         ticketReservationManager.registerAlfioTransaction(eventRepository.findById(ticket.getEventId()), ticket.getTicketsReservationId(), PaymentProxy.ON_SITE);
     }
 
-    public TicketAndCheckInResult confirmOnSitePayment(String eventName, String ticketIdentifier, Optional<String> ticketCode, String user) {
+    public TicketAndCheckInResult confirmOnSitePayment(String eventName, String ticketIdentifier, Optional<String> ticketCode, String username, String auditUser) {
         return eventRepository.findOptionalByShortName(eventName)
+            .filter(EventManager.checkOwnership(username, organizationRepository))
             .flatMap(e -> confirmOnSitePayment(ticketIdentifier).map((String s) -> Pair.of(s, e)))
-            .map(p -> checkIn(p.getRight().getId(), ticketIdentifier, ticketCode, user))
+            .map(p -> checkIn(p.getRight().getId(), ticketIdentifier, ticketCode, auditUser))
             .orElseGet(() -> new TicketAndCheckInResult(null, new DefaultCheckInResult(CheckInStatus.TICKET_NOT_FOUND, "")));
     }
 
@@ -110,8 +110,11 @@ public class CheckInManager {
         return uuid;
     }
 
-    public TicketAndCheckInResult checkIn(String shortName, String ticketIdentifier, Optional<String> ticketCode, String user) {
-        return eventRepository.findOptionalByShortName(shortName).map(e -> checkIn(e.getId(), ticketIdentifier, ticketCode, user)).orElseGet(() -> new TicketAndCheckInResult(null, new DefaultCheckInResult(CheckInStatus.EVENT_NOT_FOUND, "event not found")));
+    public TicketAndCheckInResult checkIn(String shortName, String ticketIdentifier, Optional<String> ticketCode, String username, String auditUser) {
+        return eventRepository.findOptionalByShortName(shortName)
+            .filter(EventManager.checkOwnership(username, organizationRepository))
+            .map(e -> checkIn(e.getId(), ticketIdentifier, ticketCode, auditUser))
+            .orElseGet(() -> new TicketAndCheckInResult(null, new DefaultCheckInResult(CheckInStatus.EVENT_NOT_FOUND, "event not found")));
     }
 
     public TicketAndCheckInResult checkIn(int eventId, String ticketIdentifier, Optional<String> ticketCode, String user) {
@@ -148,6 +151,7 @@ public class CheckInManager {
                 ticketRepository.updateTicketStatusWithUUID(ticketIdentifier, revertedStatus.toString());
                 scanAuditRepository.insert(ticketIdentifier, eventId, ZonedDateTime.now(), user, OK_READY_TO_BE_CHECKED_IN, ScanAudit.Operation.REVERT);
                 auditingRepository.insert(t.getTicketsReservationId(), userRepository.findIdByUserName(user).orElse(null), eventId, Audit.EventType.REVERT_CHECK_IN, new Date(), Audit.EntityType.TICKET, Integer.toString(t.getId()));
+                extensionManager.handleTicketRevertCheckedIn(ticketRepository.findByUUID(ticketIdentifier));
                 return true;
             }
             return false;
@@ -261,9 +265,9 @@ public class CheckInManager {
         try {
             Pair<Cipher, SecretKeySpec> cipherAndSecret = getCypher(key);
             Cipher cipher = cipherAndSecret.getKey();
-            String[] splitted = payload.split(Pattern.quote("|"));
-            byte[] iv = Base64.decodeBase64(splitted[0]);
-            byte[] body = Base64.decodeBase64(splitted[1]);
+            String[] split = payload.split(Pattern.quote("|"));
+            byte[] iv = Base64.decodeBase64(split[0]);
+            byte[] body = Base64.decodeBase64(split[1]);
             cipher.init(Cipher.DECRYPT_MODE, cipherAndSecret.getRight(), new IvParameterSpec(iv));
             byte[] decrypted = cipher.doFinal(body);
             return new String(decrypted, StandardCharsets.UTF_8);
@@ -281,14 +285,14 @@ public class CheckInManager {
     }
 
     public List<Integer> getAttendeesIdentifiers(int eventId, Date changedSince, String username) {
-        return optionally(() -> eventRepository.findById(eventId))
+        return eventRepository.findOptionalById(eventId)
             .filter(EventManager.checkOwnership(username, organizationRepository))
             .map(event -> ticketRepository.findAllAssignedByEventId(event.getId(), changedSince))
             .orElse(Collections.emptyList());
     }
 
     public List<FullTicketInfo> getAttendeesInformation(int eventId, List<Integer> ids, String username) {
-        return optionally(() -> eventRepository.findById(eventId))
+        return eventRepository.findOptionalById(eventId)
             .filter(EventManager.checkOwnership(username, organizationRepository))
             .map(event -> ticketRepository.findAllFullTicketInfoAssignedByEventId(event.getId(), ids))
             .orElse(Collections.emptyList());
@@ -342,5 +346,17 @@ public class CheckInManager {
                 .collect(Collectors.toMap(hashedHMAC, encryptedBody));
 
         }).orElseGet(Collections::emptyMap);
+    }
+
+    public CheckInStatistics getStatistics(String eventName, String username) {
+        return eventRepository.findOptionalByShortName(eventName)
+            .filter(this::areStatsEnabled)
+            .filter(EventManager.checkOwnership(username, organizationRepository))
+            .map(event -> eventRepository.retrieveCheckInStatisticsForEvent(event.getId()))
+            .orElse(null);
+    }
+
+    private boolean areStatsEnabled(Event event) {
+        return configurationManager.getBooleanConfigValue(Configuration.from(event.getOrganizationId(), event.getId(), CHECK_IN_STATS), true);
     }
 }

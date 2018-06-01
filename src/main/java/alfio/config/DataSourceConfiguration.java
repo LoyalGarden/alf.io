@@ -19,11 +19,7 @@ package alfio.config;
 import alfio.config.support.PlatformProvider;
 import alfio.manager.Jobs.*;
 import alfio.manager.UploadedResourceManager;
-import alfio.plugin.PluginDataStorageProvider;
-import alfio.plugin.mailchimp.MailChimpPlugin;
-import alfio.repository.EventRepository;
-import alfio.repository.plugin.PluginConfigurationRepository;
-import alfio.repository.plugin.PluginLogRepository;
+import alfio.manager.system.ConfigurationManager;
 import alfio.util.TemplateManager;
 import ch.digitalfondue.npjt.QueryFactory;
 import ch.digitalfondue.npjt.mapper.ZonedDateTimeMapper;
@@ -86,7 +82,16 @@ public class DataSourceConfiguration implements ResourceLoaderAware {
                                     .filter(p -> p.isHosting(environment))
                                     .findFirst()
                                     .orElse(PlatformProvider.DEFAULT);
-        log.info("Detected cloud provider: {}, database: {}", current, current.getDialect(environment));
+        String dialect = current.getDialect(environment);
+        log.info("Detected cloud provider: {}, database: {}", current, dialect);
+        if(PlatformProvider.MYSQL.equals(dialect)) {
+            log.warn("********************** WARNING! WARNING! WARNING!****************************");
+            log.warn("**                                                                         **");
+            log.warn("**         MYSQL SUPPORT WILL BE DROPPED IN ALF.IO V2 (exp. Q4 2018)       **");
+            log.warn("**                 Please consider switching to PostgreSql                 **");
+            log.warn("**                                                                         **");
+            log.warn("*****************************************************************************");
+        }
         return current;
     }
 
@@ -160,8 +165,8 @@ public class DataSourceConfiguration implements ResourceLoaderAware {
     }
 
     @Bean
-    public TemplateManager getTemplateManager(UploadedResourceManager uploadedResourceManager) {
-        return new TemplateManager(getTemplateLoader(), messageSource(), uploadedResourceManager);
+    public TemplateManager getTemplateManager(UploadedResourceManager uploadedResourceManager, ConfigurationManager configurationManager) {
+        return new TemplateManager(getTemplateLoader(), messageSource(), uploadedResourceManager, configurationManager);
     }
 
     @Bean
@@ -171,22 +176,6 @@ public class DataSourceConfiguration implements ResourceLoaderAware {
         loader.setSuffix(".ms");
         loader.setResourceLoader(resourceLoader);
         return loader;
-    }
-
-    @Bean
-    public MailChimpPlugin getMailChimpPlugin(PluginConfigurationRepository pluginConfigurationRepository,
-                                              PluginLogRepository pluginLogRepository,
-                                              PlatformTransactionManager platformTransactionManager,
-                                              EventRepository eventRepository) {
-        return new MailChimpPlugin(pluginDataStorageProvider(pluginConfigurationRepository, pluginLogRepository, platformTransactionManager, eventRepository));
-    }
-
-    @Bean
-    public PluginDataStorageProvider pluginDataStorageProvider(PluginConfigurationRepository pluginConfigurationRepository,
-                                                               PluginLogRepository pluginLogRepository,
-                                                               PlatformTransactionManager platformTransactionManager,
-                                                               EventRepository eventRepository) {
-        return new PluginDataStorageProvider(pluginConfigurationRepository, pluginLogRepository, platformTransactionManager, eventRepository);
     }
 
     // ----- scheduler conf ------

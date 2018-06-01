@@ -42,9 +42,11 @@ public class PaymentForm implements Serializable {
     private String firstName;
     private String lastName;
     private String billingAddress;
+    private String customerReference;
     private String hmac;
     private Boolean cancelReservation;
     private Boolean termAndConditionsAccepted;
+    private Boolean privacyPolicyAccepted;
     private PaymentProxy paymentMethod;
     private Boolean expressCheckoutRequested;
     private boolean postponeAssignment = false;
@@ -89,7 +91,8 @@ public class PaymentForm implements Serializable {
             bindingResult.reject(ErrorsCode.STEP_2_MISSING_STRIPE_TOKEN);
         }
 
-        if(Objects.isNull(termAndConditionsAccepted) || !termAndConditionsAccepted) {
+        if(Objects.isNull(termAndConditionsAccepted) || !termAndConditionsAccepted
+            || (StringUtils.isNotEmpty(event.getPrivacyPolicyUrl()) && (Objects.isNull(privacyPolicyAccepted) || !privacyPolicyAccepted)) ) {
             bindingResult.reject(ErrorsCode.STEP_2_TERMS_NOT_ACCEPTED);
         }
         
@@ -117,6 +120,9 @@ public class PaymentForm implements Serializable {
 
         rejectIfOverLength(bindingResult, "billingAddress", ErrorsCode.STEP_2_MAX_LENGTH_BILLING_ADDRESS,
                 billingAddress, 450);
+        if(invoiceRequested) {
+            ValidationUtils.rejectIfEmptyOrWhitespace(bindingResult, "billingAddress", ErrorsCode.STEP_2_EMPTY_BILLING_ADDRESS);
+        }
 
         if (email != null && !email.contains("@") && !bindingResult.hasFieldErrors("email")) {
             bindingResult.rejectValue("email", ErrorsCode.STEP_2_INVALID_EMAIL);
@@ -152,6 +158,7 @@ public class PaymentForm implements Serializable {
         form.setVatCountryCode(reservation.getVatCountryCode());
         form.setVatNr(reservation.getVatNr());
         form.setInvoiceRequested(reservation.isInvoiceRequested());
+        form.setCustomerReference(reservation.getCustomerReference());
         return form;
     }
 

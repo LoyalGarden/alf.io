@@ -16,7 +16,6 @@
  */
 package alfio.manager;
 
-import alfio.manager.plugin.PluginManager;
 import alfio.manager.system.ConfigurationManager;
 import alfio.model.*;
 import alfio.repository.*;
@@ -88,8 +87,6 @@ public class TicketReservationManagerUnitTest {
     @Mock
     private WaitingQueueManager waitingQueueManager;
     @Mock
-    private PluginManager pluginManager;
-    @Mock
     private FileUploadManager fileUploadManager;
     @Mock
     private TicketFieldRepository ticketFieldRepository;
@@ -107,6 +104,8 @@ public class TicketReservationManagerUnitTest {
     private UserRepository userRepository;
     @Mock
     private ExtensionManager extensionManager;
+    @Mock
+    private TicketSearchRepository ticketSearchRepository;
 
     @Before
     public void setUp() {
@@ -126,7 +125,6 @@ public class TicketReservationManagerUnitTest {
             templateManager,
             transactionManager,
             waitingQueueManager,
-            pluginManager,
             ticketFieldRepository,
             additionalServiceRepository,
             additionalServiceItemRepository,
@@ -134,7 +132,7 @@ public class TicketReservationManagerUnitTest {
             invoiceSequencesRepository,
             auditingRepository,
             userRepository,
-            extensionManager);
+            extensionManager, ticketSearchRepository);
     }
 
     @Test

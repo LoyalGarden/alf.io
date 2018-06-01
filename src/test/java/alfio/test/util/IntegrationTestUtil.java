@@ -93,13 +93,22 @@ public class IntegrationTestUtil {
                                                 UserManager userManager,
                                                 EventManager eventManager,
                                                 EventRepository eventRepository) {
+        return initEvent(categories, organizationRepository, userManager, eventManager, eventRepository, null);
+    }
+
+    public static Pair<Event, String> initEvent(List<TicketCategoryModification> categories,
+                                                OrganizationRepository organizationRepository,
+                                                UserManager userManager,
+                                                EventManager eventManager,
+                                                EventRepository eventRepository,
+                                                List<EventModification.AdditionalService> additionalServices) {
 
         String organizationName = UUID.randomUUID().toString();
         String username = UUID.randomUUID().toString();
         String eventName = UUID.randomUUID().toString();
 
         userManager.createOrganization(organizationName, "org", "email@example.com");
-        Organization organization = organizationRepository.findByName(organizationName).get(0);
+        Organization organization = organizationRepository.findByName(organizationName).get();
         userManager.insertUser(organization.getId(), username, "test", "test", "test@example.com", Role.OPERATOR, User.Type.INTERNAL);
         userManager.insertUser(organization.getId(), username+"_owner", "test", "test", "test@example.com", Role.OWNER, User.Type.INTERNAL);
 
@@ -110,12 +119,12 @@ public class IntegrationTestUtil {
         desc.put("it", "muh description");
         desc.put("de", "muh description");
 
-        EventModification em = new EventModification(null, Event.EventType.INTERNAL, "url", "url", "url", "url", null,
+        EventModification em = new EventModification(null, Event.EventType.INTERNAL, "url", "url", "url", "privacy","url", null,
                 eventName, "event display name", organization.getId(),
                 "muh location", "0.0", "0.0", ZoneId.systemDefault().getId(), desc,
                 new DateTimeModification(LocalDate.now().plusDays(5), LocalTime.now()),
                 new DateTimeModification(expiration.toLocalDate(), expiration.toLocalTime()),
-                BigDecimal.TEN, "CHF", AVAILABLE_SEATS, BigDecimal.ONE, true, Collections.singletonList(PaymentProxy.OFFLINE), categories, false, new LocationDescriptor("","","",""), 7, null, null);
+                BigDecimal.TEN, "CHF", AVAILABLE_SEATS, BigDecimal.ONE, true, Collections.singletonList(PaymentProxy.OFFLINE), categories, false, new LocationDescriptor("","","",""), 7, null, additionalServices);
         eventManager.createEvent(em);
         Event event = eventManager.getSingleEvent(eventName, username);
         Assert.assertEquals(AVAILABLE_SEATS, eventRepository.countExistingTickets(event.getId()).intValue());
